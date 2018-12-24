@@ -1,0 +1,3 @@
+environment/*
+code/legacy/*
+code/__pycache__/*
