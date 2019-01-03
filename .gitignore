@@ -1,3 +1,4 @@
 environment/*
 code/legacy/*
 code/__pycache__/*
+code/*.ignore
