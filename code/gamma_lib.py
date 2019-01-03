@@ -18,6 +18,9 @@ _NORMAL_SIZE = float(50 * 1000 * 1000)
 _THRESHOLD = 50
 _PSEUDO = 1
 _Z_THRESHOLD = 12
+_BIN_MIN = -0.9
+_BIN_MAX = -0.1
+_NBINS = 5
 
 def _namespan_func(k):
   def namespan(id_pair):
@@ -211,6 +214,17 @@ def map_variant_to_mean_full_relative_gamma(datadir):
   relgammas = pd.DataFrame(relgammas.mean(axis=1), columns=['relgamma'])
   relgammas.reset_index(inplace=True)
   mapping_lib.make_mapping(relgammas, 'variant', 'relgamma', datadir)
+
+def relgamma_bins(relgammas):
+  bins = np.linspace(_BIN_MIN, _BIN_MAX, _NBINS-1)
+  rgbins = np.digitize(relgammas, bins)
+  return rgbins
+
+def map_variant_to_bin(datadir):
+  varrg = mapping_lib.get_mapping('variant', 'relgamma', datadir)
+  rgbin = relgamma_bins(varrg.relgamma.values)
+  rgbin = pd.DataFrame(rgbin.T, index=varrg.index, columns=['rgbin']).reset_index()
+  mapping_lib.make_mapping(rgbin, 'variant', 'rgbin', datadir)
 
 def unfiltered_mean_relgammas(datadir):
   child_gammas = get_child_gammas(datadir)
