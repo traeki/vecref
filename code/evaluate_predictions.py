@@ -4,14 +4,15 @@
 import logging
 import pathlib
 import pickle
-import shutil
+import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as st
-from sklearn import preprocessing as skpreproc
-from sklearn import model_selection as skmodsel
 
+from keras.models import load_model
+
+import gamma_lib
 import mapping_lib
 import training_lib
 
@@ -22,66 +23,33 @@ UNGD = pathlib.Path('/home/jsh/ungd/proj/vecref')
 DIR_PREFIX = pathlib.Path(__file__).parents[1]
 _CODEFILE = pathlib.Path(__file__).name
 
-_DATA_FRACTION = 1
-_K_FOLD_SPLITS = 4
-_REL_PLOT_MIN = -1.2
-_REL_PLOT_MAX = 0.5
-
 
 ######################
-# Read Relgamma Data #
+# Read Prediction Data #
 ######################
-data = mapping_lib.get_mapping('variant', 'relgamma', UNGD)
+predmap = mapping_lib.get_mapping('variant', 'y_pred', UNGD)
+measmap = mapping_lib.get_mapping('variant', 'relgamma', UNGD)
 
-###############
-# Filter Data #
-###############
-# Remove non-oneoff guides (parents, off-strand, controls, etc.)
-data = training_lib.filter_for_training(data, UNGD)
-data = data.dropna()
+modeldir = UNGD / 'train_prediction_model.models'
+model_template = 'model.{i}.d5'
+coverage_template = 'model.{i}.coverage'
 
-###################
-# Downsample Data #
-###################
-# Group by family, sample to 1%
-data = training_lib.downsample_families(data, _DATA_FRACTION, UNGD)
+# Loop over models
+models = list()
+coverage = list()
+i = 0
+while True:
+  try:
+    # Create model
+    model = load_model(model_template.format(**locals()))
+    models.append(model)
+    cover = pickle.load(open(coverage_template.format(**locals*()), 'rb'))
+    coverage.append(cover)
+    print('Found model {i}.'.format(**locals()))
+  except FileError:
+    break
 
-###################
-# Preprocess Data #
-###################
-encoder = training_lib.one_hot_pair_encoder(UNGD)
-X = np.stack([encoder(x)[1] for x in data.index], axis=0)
-y = np.array(data.relgamma)
-
-###################################
-# Split Data for Cross-Validation #
-###################################
-familymap = mapping_lib.get_mapping('variant', 'original', UNGD)
-familymap = familymap.loc[data.index]
-kfolder = skmodsel.GroupKFold(_K_FOLD_SPLITS).split(X, y, familymap)
-
-cross_predictions = np.zeros_like(y)
-
-plotdir = (UNGD / _CODEFILE).with_suffix('.plots')
-shutil.rmtree(plotdir, ignore_errors=True)
-plotdir.mkdir(parents=True, exist_ok=True)
-modeldir = (UNGD / _CODEFILE).with_suffix('.models')
-shutil.rmtree(modeldir, ignore_errors=True)
-modeldir.mkdir(parents=True, exist_ok=True)
-# Loop cross-validation
-for i, (train, test) in enumerate(kfolder):
-  # Create model
-  model = training_lib.build_conv_net_model()
-  # Feed training Data
-  model_history = model.fit(X[train], y[train],
-                            batch_size=32, epochs=30,
-                            validation_data=(X[test], y[test]))
-  modelfile = modeldir / 'model.{i}.d5'.format(**locals())
-  modelfile = str(modelfile)  # NOTE(jsh): workaround until Keras PR #11466
-  model.save(modelfile)
-  coverfile = modeldir / 'model.{i}.coverage'.format(**locals())
-  pickle.dump(test, open(coverfile, 'wb'))
-
+def never():
   cross_predictions[test] = model.predict(X[test]).ravel()
 
   plt.figure(figsize=(6,6))
@@ -109,6 +77,9 @@ for i, (train, test) in enumerate(kfolder):
   plt.savefig(plotfile)
   plt.close()
 
+# NOTE(jsh): FORCES END OF FILE
+sys.exit(0)
+
 plt.figure(figsize=(6,6))
 plt.scatter(cross_predictions, y, marker='.', alpha=.2)
 plt.title('Model Predictions [agg]'.format(**locals()))
@@ -131,7 +102,7 @@ data['y_pred'] = cross_predictions
 data['gene_name'] = geneids
 data['original'] = familymap.original
 
-mapping_lib.make_mapping(data.reset_index(), 'variant', 'y_pred', UNGD)
+mapping_lib.make_mapping(data, 'variant', 'y_pred', UNGD)
 
 for gene, group in data.groupby('gene_name'):
   predicted = group.y_pred
