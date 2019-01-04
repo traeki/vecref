@@ -32,7 +32,7 @@ measmap = mapping_lib.get_mapping('variant', 'relgamma', UNGD)
 
 modeldir = UNGD / 'train_prediction_model.models'
 model_template = 'model.{i}.d5'
-coverage_template = 'model.{i}.coverage'
+coverage_template = 'model.{i}.coverage.pickle'
 
 # Loop over models
 models = list()
@@ -41,12 +41,15 @@ i = 0
 while True:
   try:
     # Create model
-    model = load_model(model_template.format(**locals()))
+    modelfile = modeldir / model_template.format(**locals())
+    model = load_model(str(modelfile))
     models.append(model)
-    cover = pickle.load(open(coverage_template.format(**locals*()), 'rb'))
+    coverfile = modeldir / coverage_template.format(**locals())
+    cover = pickle.load(open(coverfile, 'rb'))
     coverage.append(cover)
     print('Found model {i}.'.format(**locals()))
-  except FileError:
+    i += 1
+  except OSError:
     break
 
 def never():

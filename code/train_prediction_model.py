@@ -79,8 +79,8 @@ for i, (train, test) in enumerate(kfolder):
   modelfile = modeldir / 'model.{i}.d5'.format(**locals())
   modelfile = str(modelfile)  # NOTE(jsh): workaround until Keras PR #11466
   model.save(modelfile)
-  coverfile = modeldir / 'model.{i}.coverage'.format(**locals())
-  pickle.dump(test, open(coverfile, 'wb'))
+  coverfile = modeldir / 'model.{i}.coverage.pickle'.format(**locals())
+  pickle.dump(data.index[test], open(coverfile, 'wb'))
 
   cross_predictions[test] = model.predict(X[test]).ravel()
 
