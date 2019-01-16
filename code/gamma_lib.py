@@ -215,14 +215,17 @@ def map_variant_to_mean_full_relative_gamma(datadir):
   relgammas.reset_index(inplace=True)
   mapping_lib.make_mapping(relgammas, 'variant', 'relgamma', datadir)
 
-def relgamma_bins(relgammas):
-  bins = np.linspace(_BIN_MIN, _BIN_MAX, _NBINS-1)
+def relgamma_bins():
+  return np.linspace(_BIN_MIN, _BIN_MAX, _NBINS-1)
+
+def bin_relgammas(relgammas, bins):
   rgbins = np.digitize(relgammas, bins)
   return rgbins
 
 def map_variant_to_bin(datadir):
   varrg = mapping_lib.get_mapping('variant', 'relgamma', datadir)
-  rgbin = relgamma_bins(varrg.relgamma.values)
+  bins = relgamma_bins()
+  rgbin = bin_relgammas(varrg.relgamma.values, bins)
   rgbin = pd.DataFrame(rgbin.T, index=varrg.index, columns=['rgbin']).reset_index()
   mapping_lib.make_mapping(rgbin, 'variant', 'rgbin', datadir)
 
@@ -236,3 +239,11 @@ def unfiltered_mean_relgammas(datadir):
   relgammas.set_index('variant', inplace=True)
   relgammas = pd.DataFrame(relgammas.mean(axis=1), columns=['relgamma'])
   return relgammas
+
+def weight_bins(binlabels):
+  bounds = np.concatenate([[-1], relgamma_bins(), [0]])
+  binwidths = np.diff(bounds)
+  bincounts = binlabels.value_counts()
+  binratios = bincounts / binlabels.count()
+  binweights = dict(binwidths / binratios)
+  return binweights

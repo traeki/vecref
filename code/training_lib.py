@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # Author: John Hawkins (jsh) [really@gmail.com]
 
+import itertools
 import logging
 import pathlib
 import random
@@ -8,6 +9,7 @@ import sys
 
 import numpy as np
 import pandas as pd
+from pandas.api.types import CategoricalDtype
 
 from keras.layers import Conv2D
 from keras.layers import Activation
@@ -28,13 +30,28 @@ logging.basicConfig(level=logging.INFO,
 np.set_printoptions(precision=4, suppress=True)
 
 
-_DEFAULT_HYPERPARAMS = dict()
-_DEFAULT_HYPERPARAMS['first_conv_layer_nodes'] = 64
-_DEFAULT_HYPERPARAMS['second_conv_layer_nodes'] = 128
-_DEFAULT_HYPERPARAMS['first_dense_layer_nodes'] = 768
-_DEFAULT_HYPERPARAMS['second_dense_layer_nodes'] = 384
+UNGD = pathlib.Path('/home/jsh/ungd/proj/vecref')
+_CODEFILE = pathlib.Path(__file__).name
+CONVNET_MODELDIR = (UNGD / _CODEFILE).with_suffix('.convnet.models')
+LINEAR_MODELDIR = (UNGD / _CODEFILE).with_suffix('.linear.models')
 
-def build_conv_net_model(hyperparams=_DEFAULT_HYPERPARAMS):
+_DEFAULT_LINEAR_HYPERPARAMS = dict()
+_DEFAULT_LINEAR_HYPERPARAMS['num_features'] = 581 # TODO(jsh): automate this
+
+_DEFAULT_NN_HYPERPARAMS = dict()
+_DEFAULT_NN_HYPERPARAMS['first_conv_layer_nodes'] = 64
+_DEFAULT_NN_HYPERPARAMS['second_conv_layer_nodes'] = 128
+_DEFAULT_NN_HYPERPARAMS['first_dense_layer_nodes'] = 768
+_DEFAULT_NN_HYPERPARAMS['second_dense_layer_nodes'] = 384
+
+# TODO(jsh): DEBUG ONLY
+# _DEFAULT_HYPERPARAMS['first_conv_layer_nodes'] = 64
+# _DEFAULT_HYPERPARAMS['second_conv_layer_nodes'] = 128
+# _DEFAULT_HYPERPARAMS['first_dense_layer_nodes'] = 64
+# _DEFAULT_HYPERPARAMS['second_dense_layer_nodes'] = 32
+# TODO(jsh): DEBUG ONLY
+
+def build_conv_net_model(hyperparams=_DEFAULT_NN_HYPERPARAMS):
   # TODO(jsh): use dict.update to merge passed hyperparams, don't clobber
   model = Sequential()
   model.add(Conv2D(hyperparams['first_conv_layer_nodes'],
@@ -54,6 +71,13 @@ def build_conv_net_model(hyperparams=_DEFAULT_HYPERPARAMS):
                   activation='relu'))
   model.add(Dropout(0.5))
   model.add(Dense(1))
+  model.compile(loss='mse', metrics=['mse'], optimizer='adam')
+  return model
+
+def build_linear_model(hyperparams=_DEFAULT_LINEAR_HYPERPARAMS):
+  model = Sequential()
+  indim = hyperparams['num_features']
+  model.add(Dense(1, input_dim=indim, activation='linear'))
   model.compile(loss='mse', metrics=['mse'], optimizer='adam')
   return model
 
@@ -90,4 +114,60 @@ def one_hot_pair_encoder(datadir):
     onehot = np.stack([enc.fit_transform(V),
                        enc.fit_transform(O)], axis=-1)
     return ((varplus, origplus), onehot)
+  return encoder
+
+
+def expand_dummies(frame):
+  categories = dict()
+  bases = ['A', 'C', 'G', 'T', 'N']
+  idxs = [x for x in range(20)]  # Magic number because guidelen is fixed.
+  pairs = [''.join(pair) for pair in itertools.product(bases, bases)]
+  combos = ['_'.join((pair, str(idx))) for pair, idx in itertools.product(pairs, idxs)]
+  categories['mm_idx'] = idxs
+  categories['mm_trans'] = pairs
+  categories['mm_suffix'] = pairs
+  categories['mm_prefix'] = pairs
+  categories['mm_brackets'] = pairs
+  categories['firstbase'] = bases
+  categories['mm_both'] = combos
+  widecols = list()
+  for column in frame.columns:
+    if column not in categories:
+      continue
+    frame[column] = frame[column].astype(CategoricalDtype(categories[column]))
+  return pd.get_dummies(frame)
+
+
+def feature_encoder(datadir):
+  var_orig = mapping_lib.get_mapping('variant', 'original', datadir)
+  var_pam = mapping_lib.get_mapping('variant', 'pam', datadir)
+  def encoder(seq):
+    orig = var_orig.loc[seq].original
+    pam = var_pam.loc[seq].pam
+    varplus = seq + pam[0]
+    origplus = orig + pam[0]
+    mm_idx = None
+    for i in range(len(varplus)):
+      if varplus[i] != origplus[i]:
+        if origplus != varplus[:i] + origplus[i] + varplus[i+1:]:
+          template = 'too many mismatches in pair {varplus} <- {origplus}'
+          raise ValueError(template.format(**locals()))
+        mm_idx = i
+    if mm_idx == None:
+      template = 'no mismatch in pair {varplus} <- {origplus}'
+      raise ValueError(template.format(**locals()))
+    features = dict()
+    features['mm_idx'] = mm_idx
+    mm_trans = ''.join([origplus[mm_idx], varplus[mm_idx]])
+    features['mm_trans'] = mm_trans
+    features['mm_both'] = '_'.join([str(mm_idx), mm_trans])
+    features['gc_cont'] = origplus.count('G') + origplus.count('C')
+    features['firstbase'] = origplus[0]
+    wrapped = 'NN' + varplus + 'NN'
+    features['mm_brackets'] = ''.join([wrapped[mm_idx+1], wrapped[mm_idx+3]])
+    features['mm_prefix'] = wrapped[mm_idx:mm_idx+2]
+    features['mm_suffix'] = wrapped[mm_idx+3:mm_idx+5]
+    row = pd.Series(features)
+    row.drop(['mm_trans', 'mm_idx'], inplace=True)
+    return row
   return encoder

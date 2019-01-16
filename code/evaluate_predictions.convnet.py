@@ -4,6 +4,7 @@
 import logging
 import pathlib
 import pickle
+import shutil
 import sys
 
 import matplotlib.pyplot as plt
@@ -12,6 +13,7 @@ import scipy.stats as st
 
 from keras.models import load_model
 
+import eval_lib
 import gamma_lib
 import mapping_lib
 import training_lib
@@ -20,17 +22,30 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
 
 UNGD = pathlib.Path('/home/jsh/ungd/proj/vecref')
-DIR_PREFIX = pathlib.Path(__file__).parents[1]
+_DIR_PREFIX = pathlib.Path(__file__).parents[1]
 _CODEFILE = pathlib.Path(__file__).name
+PLOTDIR = (UNGD / _CODEFILE).with_suffix('.plots')
 
+_REL_PLOT_MIN = -1.2
+_REL_PLOT_MAX = 0.5
 
-######################
+############################
+# Re-load/process raw data #
+############################
+data = mapping_lib.get_mapping('variant', 'relgamma', UNGD)
+data = training_lib.filter_for_training(data, UNGD)
+data = data.dropna()
+familymap = mapping_lib.get_mapping('variant', 'original', UNGD)
+familymap = familymap.loc[data.index]
+encoder = training_lib.one_hot_pair_encoder(UNGD)
+X = np.stack([encoder(x)[1] for x in data.index], axis=0)
+y = np.array(data.relgamma)
+cross_predictions = np.full_like(y, np.nan)
+
+########################
 # Read Prediction Data #
-######################
-predmap = mapping_lib.get_mapping('variant', 'y_pred', UNGD)
-measmap = mapping_lib.get_mapping('variant', 'relgamma', UNGD)
-
-modeldir = UNGD / 'train_prediction_model.models'
+########################
+modeldir = training_lib.CONVNET_MODELDIR
 model_template = 'model.{i}.d5'
 coverage_template = 'model.{i}.coverage.pickle'
 
@@ -52,23 +67,23 @@ while True:
   except OSError:
     break
 
-def never():
-  cross_predictions[test] = model.predict(X[test]).ravel()
+
+shutil.rmtree(PLOTDIR, ignore_errors=True)
+PLOTDIR.mkdir(parents=True, exist_ok=True)
+# Loop cross-validation
+for i in range(len(models)):
+  model = models[i]
+  cover = coverage[i]
+  testmask = data.index.isin(cover)
+  test = testmask.nonzero()[0]
+  train = (~testmask).nonzero()[0]
+  test_predictions = model.predict(X[test]).ravel()
+  train_predictions = model.predict(X[train]).ravel()
+  cross_predictions[test] = test_predictions
 
   plt.figure(figsize=(6,6))
-  plt.plot(model_history.history['mean_squared_error'])
-  plt.plot(model_history.history['val_mean_squared_error'])
-  plt.title('Model Error [Fold {i}]'.format(**locals()))
-  plt.xlabel('Epoch')
-  plt.ylabel('MSE')
-  plt.ylim(-0.2, 1.2)
-  plt.legend(['Train', 'Test'], loc='upper right')
-  plotfile = plotdir / 'error.trace.{i}.png'.format(**locals())
-  plt.savefig(plotfile)
-  plt.close()
-
-  plt.figure(figsize=(6,6))
-  plt.scatter(cross_predictions[test], y[test], marker='.', alpha=.2)
+  plt.scatter(test_predictions, y[test], marker='.', alpha=.2, label='test')
+  plt.scatter(train_predictions, y[train], marker='.', alpha=.2, label='train')
   plt.title('Model Predictions [Fold {i}]'.format(**locals()))
   plt.xlabel('predicted')
   plt.ylabel('measured')
@@ -76,12 +91,9 @@ def never():
   plt.ylim(_REL_PLOT_MIN, _REL_PLOT_MAX)
   plt.gca().invert_xaxis()
   plt.gca().invert_yaxis()
-  plotfile = plotdir / 'scatter.{i}.png'.format(**locals())
+  plotfile = PLOTDIR / 'scatter.{i}.png'.format(**locals())
   plt.savefig(plotfile)
   plt.close()
-
-# NOTE(jsh): FORCES END OF FILE
-sys.exit(0)
 
 plt.figure(figsize=(6,6))
 plt.scatter(cross_predictions, y, marker='.', alpha=.2)
@@ -92,7 +104,7 @@ plt.xlim(_REL_PLOT_MIN, _REL_PLOT_MAX)
 plt.ylim(_REL_PLOT_MIN, _REL_PLOT_MAX)
 plt.gca().invert_xaxis()
 plt.gca().invert_yaxis()
-plotfile = plotdir / 'scatter.agg.png'.format(**locals())
+plotfile = PLOTDIR / 'scatter.agg.png'.format(**locals())
 plt.savefig(plotfile)
 plt.close()
 
@@ -105,7 +117,7 @@ data['y_pred'] = cross_predictions
 data['gene_name'] = geneids
 data['original'] = familymap.original
 
-mapping_lib.make_mapping(data, 'variant', 'y_pred', UNGD)
+mapping_lib.make_mapping(data.reset_index(), 'variant', 'y_pred', UNGD)
 
 for gene, group in data.groupby('gene_name'):
   predicted = group.y_pred
@@ -130,21 +142,8 @@ for gene, group in data.groupby('gene_name'):
   plt.gca().invert_yaxis()
   plt.text(_REL_PLOT_MAX - 0.1, _REL_PLOT_MIN + 0.1, template.format(**vars()))
   plt.tight_layout()
-  plotfile = plotdir / 'scatter.agg.{gene}.png'.format(**locals())
+  plotfile = PLOTDIR / 'scatter.agg.{gene}.png'.format(**locals())
   plt.savefig(plotfile)
   plt.close()
 
-# import IPython; IPython.embed()
-
-# TODO(jsh): Change loss function or input data to
-# TODO(jsh):  -- heavily emphasize interior values
-# TODO(jsh):  -- bound values to intended range
-# TODO(jsh):  -- de-emphasize exreme values
-# TODO(jsh):  -- sample based on distribution
-# TODO(jsh):  -- all of the above
-# TODO(jsh):  -- ...?
-
-
-# TODO(jsh): Tune hyper-parameters
-# TODO(jsh): Does gamma format (+/-1, etc.) matter?
-# TODO(jsh): Consider resampling/imbalanced feed
+eval_lib.plot_confusion(data, PLOTDIR)
