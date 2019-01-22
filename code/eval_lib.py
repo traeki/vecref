@@ -21,7 +21,7 @@ from keras.layers import AvgPool2D
 from keras.layers import Dropout
 from keras.models import Sequential
 
-from sklearn import preprocessing as skpreproc
+from sklearn.preprocessing import normalize
 
 import mapping_lib
 import gamma_lib
@@ -38,7 +38,7 @@ def plot_confusion(data, plotdir):
   predbins = gamma_lib.bin_relgammas(data.y_pred, bins)
   measbins = gamma_lib.bin_relgammas(data.y_meas, bins)
   cm = confusion_matrix(measbins, predbins)
-  truenorm_cm = cm / cm.sum(axis=1)[:, np.newaxis]
+  truenorm_cm = normalize(cm, axis=1, norm='l1')
 
   plt.figure(figsize=(8,6))
   heatmap = sns.heatmap(truenorm_cm, annot=True, fmt=".2f", cmap='YlGnBu',
@@ -54,7 +54,7 @@ def plot_confusion(data, plotdir):
   plt.savefig(plotfile)
   plt.close()
 
-  prednorm_cm = cm / cm.sum(axis=0)
+  prednorm_cm = normalize(cm, axis=0, norm='l1')
   plt.figure(figsize=(8,6))
   heatmap = sns.heatmap(prednorm_cm, annot=True, fmt=".2f", cmap='YlGnBu',
                         xticklabels=True,
