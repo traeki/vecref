@@ -44,10 +44,9 @@ familymap = familymap.loc[data.index]
 encoder = training_lib.feature_encoder(UNGD)
 encodings = [encoder(x) for x in data.index]
 Xframe = pd.DataFrame(encodings, index=data.index)
-# TODO(jsh): reinstate
-# Xframe = training_lib.expand_dummies(Xframe)
-X = np.array(Xframe)
-y = np.array(data[['relgamma']])
+Xframe = training_lib.expand_dummies(Xframe)
+X = np.array(Xframe, dtype=float)
+y = np.array(data[['relgamma']], dtype=float)
 cross_predictions = np.full_like(y, np.nan)
 
 y_orig = y
@@ -96,6 +95,7 @@ while True:
   except OSError:
     break
 
+ALIGNED_CROSS_PRED_ = None
 
 shutil.rmtree(PLOTDIR, ignore_errors=True)
 PLOTDIR.mkdir(parents=True, exist_ok=True)
@@ -113,6 +113,8 @@ for i in range(len(models)):
   train_predictions = y_scaler.inverse_transform(train_predictions)
   train_predictions = train_predictions.reshape(-1,1)
   cross_predictions[test] = test_predictions
+  if i == 0:
+    ALIGNED_CROSS_PRED_ = cross_predictions.copy()
 
   plt.figure(figsize=(6,6))
   plt.scatter(test_predictions, y[test], marker='.', alpha=.2, label='test')
@@ -147,10 +149,13 @@ geneids = genemap.loc[locusmap.loc[data.index].locus_tag]
 geneids.index = data.index
 data['y_meas'] = data.relgamma
 data['y_pred'] = cross_predictions
+data['y_aligned'] = ALIGNED_CROSS_PRED_
 data['gene_name'] = geneids
 data['original'] = familymap.original
 
 mapping_lib.make_mapping(data.reset_index(), 'variant', 'y_pred', UNGD)
+
+data.dropna(subset=['y_aligned'], inplace=True)
 
 for gene, group in data.groupby('gene_name'):
   predicted = group.y_pred

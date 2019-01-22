@@ -66,10 +66,9 @@ encoder = training_lib.feature_encoder(UNGD)
 encodings = [encoder(x) for x in data.index]
 
 Xframe = pd.DataFrame(encodings, index=data.index)
-# TODO(jsh): reinstate
-# Xframe = training_lib.expand_dummies(Xframe)
-X = np.array(Xframe)
-y = np.array(data[['relgamma']])
+Xframe = training_lib.expand_dummies(Xframe)
+X = np.array(Xframe, dtype=float)
+y = np.array(data[['relgamma']], dtype=float)
 
 y_orig = y
 X_scaler = skpreproc.StandardScaler()

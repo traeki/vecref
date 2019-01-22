@@ -156,20 +156,19 @@ def feature_encoder(datadir):
       template = 'no mismatch in pair {varplus} <- {origplus}'
       raise ValueError(template.format(**locals()))
     features = dict()
+    # TODO(jsh): populate this...
     features['mm_idx'] = float(mm_idx)
-    # TODO(jsh): replace this...
-    row = pd.Series(features)
-    # TODO(jsh): with this...
-    # mm_trans = ''.join([origplus[mm_idx], varplus[mm_idx]])
-    # features['mm_trans'] = mm_trans
+    mm_trans = ''.join([origplus[mm_idx], varplus[mm_idx]])
+    features['mm_trans'] = mm_trans
+    features['gc_cont'] = origplus.count('G') + origplus.count('C')
+    features['firstbase'] = origplus[0]
+    wrapped = 'NN' + varplus + 'NN'
+    features['mm_brackets'] = ''.join([wrapped[mm_idx+1], wrapped[mm_idx+3]])
+    features['mm_prefix'] = wrapped[mm_idx:mm_idx+2]
+    features['mm_suffix'] = wrapped[mm_idx+3:mm_idx+5]
+    # TODO(jsh): from this...
     # features['mm_both'] = '_'.join([str(mm_idx), mm_trans])
-    # features['gc_cont'] = origplus.count('G') + origplus.count('C')
-    # features['firstbase'] = origplus[0]
-    # wrapped = 'NN' + varplus + 'NN'
-    # features['mm_brackets'] = ''.join([wrapped[mm_idx+1], wrapped[mm_idx+3]])
-    # features['mm_prefix'] = wrapped[mm_idx:mm_idx+2]
-    # features['mm_suffix'] = wrapped[mm_idx+3:mm_idx+5]
-    # row = pd.Series(features)
     # row.drop(['mm_trans', 'mm_idx'], inplace=True)
+    row = pd.Series(features)
     return row
   return encoder
