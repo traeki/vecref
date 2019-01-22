@@ -7,12 +7,12 @@ import pickle
 import shutil
 import sys
 
+from keras.models import load_model
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy.stats as st
-
-from keras.models import load_model
+from sklearn import preprocessing as skpreproc
 
 import eval_lib
 import gamma_lib
@@ -28,12 +28,14 @@ _CODEFILE = pathlib.Path(__file__).name
 PLOTDIR = (UNGD / _CODEFILE).with_suffix('.plots')
 
 _REL_PLOT_MIN = -1.2
-_REL_PLOT_MAX = 0.5
+_REL_PLOT_MAX = 1
 
 ############################
 # Re-load/process raw data #
 ############################
-data = mapping_lib.get_mapping('variant', 'relgamma', UNGD)
+# data = mapping_lib.get_mapping('variant', 'relgamma', UNGD)
+data = mapping_lib.get_mapping('variant', 'fakerg', UNGD)
+data.columns = ['relgamma']
 data = training_lib.filter_for_training(data, UNGD)
 data = data.dropna()
 familymap = mapping_lib.get_mapping('variant', 'original', UNGD)
@@ -41,11 +43,33 @@ familymap = familymap.loc[data.index]
 
 encoder = training_lib.feature_encoder(UNGD)
 encodings = [encoder(x) for x in data.index]
-Xframe = pd.DataFrame(encodings)
-Xframe = training_lib.expand_dummies(Xframe)
+Xframe = pd.DataFrame(encodings, index=data.index)
+# TODO(jsh): reinstate
+# Xframe = training_lib.expand_dummies(Xframe)
 X = np.array(Xframe)
-y = np.array(data.relgamma)
+y = np.array(data[['relgamma']])
 cross_predictions = np.full_like(y, np.nan)
+
+y_orig = y
+X_scaler = skpreproc.StandardScaler()
+X = X_scaler.fit_transform(X)
+y_scaler = skpreproc.StandardScaler()
+y = y_scaler.fit_transform(y)
+
+traincheat = pd.read_csv(
+    '/home/jsh/gd/proj/lowficrispri/docs/20180626_rebase/output/train_models.train.tsv',
+    sep='\t')
+testcheat = pd.read_csv(
+    '/home/jsh/gd/proj/lowficrispri/docs/20180626_rebase/output/train_models.test.tsv',
+    sep='\t')
+trainset = set(traincheat.variant)
+testset = set(testcheat.variant)
+Xframe.reset_index(inplace=True)
+train = Xframe.loc[Xframe.variant.isin(trainset)].index
+test = Xframe.loc[Xframe.variant.isin(testset)].index
+splits = list()
+splits.append((train, test))
+splits.append((test, train))
 
 ########################
 # Read Prediction Data #
@@ -82,8 +106,12 @@ for i in range(len(models)):
   testmask = data.index.isin(cover)
   test = testmask.nonzero()[0]
   train = (~testmask).nonzero()[0]
-  test_predictions = model.predict(X[test]).ravel()
-  train_predictions = model.predict(X[train]).ravel()
+  test_predictions = model.predict(X[test])
+  test_predictions = y_scaler.inverse_transform(test_predictions)
+  test_predictions = test_predictions.reshape(-1,1)
+  train_predictions = model.predict(X[train])
+  train_predictions = y_scaler.inverse_transform(train_predictions)
+  train_predictions = train_predictions.reshape(-1,1)
   cross_predictions[test] = test_predictions
 
   plt.figure(figsize=(6,6))
@@ -145,7 +173,7 @@ for gene, group in data.groupby('gene_name'):
     g = plt.scatter(predicted, measured, s=6, alpha=1)
   plt.gca().invert_xaxis()
   plt.gca().invert_yaxis()
-  plt.text(_REL_PLOT_MAX - 0.1, _REL_PLOT_MIN + 0.1, template.format(**vars()))
+  plt.text(_REL_PLOT_MAX - 0.2, _REL_PLOT_MIN + 0.2, template.format(**vars()))
   plt.tight_layout()
   plotfile = PLOTDIR / 'scatter.agg.{gene}.png'.format(**locals())
   plt.savefig(plotfile)

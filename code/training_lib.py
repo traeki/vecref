@@ -36,7 +36,6 @@ CONVNET_MODELDIR = (UNGD / _CODEFILE).with_suffix('.convnet.models')
 LINEAR_MODELDIR = (UNGD / _CODEFILE).with_suffix('.linear.models')
 
 _DEFAULT_LINEAR_HYPERPARAMS = dict()
-_DEFAULT_LINEAR_HYPERPARAMS['num_features'] = 581 # TODO(jsh): automate this
 
 _DEFAULT_NN_HYPERPARAMS = dict()
 _DEFAULT_NN_HYPERPARAMS['first_conv_layer_nodes'] = 64
@@ -74,10 +73,10 @@ def build_conv_net_model(hyperparams=_DEFAULT_NN_HYPERPARAMS):
   model.compile(loss='mse', metrics=['mse'], optimizer='adam')
   return model
 
-def build_linear_model(hyperparams=_DEFAULT_LINEAR_HYPERPARAMS):
+def build_linear_model(num_features, *, hyperparams=_DEFAULT_LINEAR_HYPERPARAMS):
   model = Sequential()
-  indim = hyperparams['num_features']
-  model.add(Dense(1, input_dim=indim, activation='linear'))
+  # model.add(Dense(1, input_dim=num_features, activation='relu'))
+  model.add(Dense(1, input_dim=num_features, activation='linear'))
   model.compile(loss='mse', metrics=['mse'], optimizer='adam')
   return model
 
@@ -157,17 +156,20 @@ def feature_encoder(datadir):
       template = 'no mismatch in pair {varplus} <- {origplus}'
       raise ValueError(template.format(**locals()))
     features = dict()
-    features['mm_idx'] = mm_idx
-    mm_trans = ''.join([origplus[mm_idx], varplus[mm_idx]])
-    features['mm_trans'] = mm_trans
-    features['mm_both'] = '_'.join([str(mm_idx), mm_trans])
-    features['gc_cont'] = origplus.count('G') + origplus.count('C')
-    features['firstbase'] = origplus[0]
-    wrapped = 'NN' + varplus + 'NN'
-    features['mm_brackets'] = ''.join([wrapped[mm_idx+1], wrapped[mm_idx+3]])
-    features['mm_prefix'] = wrapped[mm_idx:mm_idx+2]
-    features['mm_suffix'] = wrapped[mm_idx+3:mm_idx+5]
+    features['mm_idx'] = float(mm_idx)
+    # TODO(jsh): replace this...
     row = pd.Series(features)
-    row.drop(['mm_trans', 'mm_idx'], inplace=True)
+    # TODO(jsh): with this...
+    # mm_trans = ''.join([origplus[mm_idx], varplus[mm_idx]])
+    # features['mm_trans'] = mm_trans
+    # features['mm_both'] = '_'.join([str(mm_idx), mm_trans])
+    # features['gc_cont'] = origplus.count('G') + origplus.count('C')
+    # features['firstbase'] = origplus[0]
+    # wrapped = 'NN' + varplus + 'NN'
+    # features['mm_brackets'] = ''.join([wrapped[mm_idx+1], wrapped[mm_idx+3]])
+    # features['mm_prefix'] = wrapped[mm_idx:mm_idx+2]
+    # features['mm_suffix'] = wrapped[mm_idx+3:mm_idx+5]
+    # row = pd.Series(features)
+    # row.drop(['mm_trans', 'mm_idx'], inplace=True)
     return row
   return encoder

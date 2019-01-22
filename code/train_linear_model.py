@@ -28,13 +28,15 @@ PLOTDIR = (UNGD / _CODEFILE).with_suffix('.plots')
 _DATA_FRACTION = 1
 _K_FOLD_SPLITS = 3
 _REL_PLOT_MIN = -1.2
-_REL_PLOT_MAX = 0.5
+_REL_PLOT_MAX = 1
 
 
 ######################
 # Read Relgamma Data #
 ######################
-data = mapping_lib.get_mapping('variant', 'relgamma', UNGD)
+# data = mapping_lib.get_mapping('variant', 'relgamma', UNGD)
+data = mapping_lib.get_mapping('variant', 'fakerg', UNGD)
+data.columns = ['relgamma']
 
 ###############
 # Filter Data #
@@ -46,16 +48,15 @@ data = data.dropna()
 ###############
 # Weight Data #
 ###############
-binmap = mapping_lib.get_mapping('variant', 'rgbin', UNGD).loc[data.index]
-binweights = gamma_lib.weight_bins(binmap.rgbin)
-weightmap = binmap.rgbin.map(binweights)
-weightmap.name = 'binweight'
-mapping_lib.make_mapping(weightmap.reset_index(), 'variant', 'binweight', UNGD)
+# binmap = mapping_lib.get_mapping('variant', 'rgbin', UNGD).loc[data.index]
+# binweights = gamma_lib.weight_bins(binmap.rgbin)
+# weightmap = binmap.rgbin.map(binweights)
+# weightmap.name = 'binweight'
+# mapping_lib.make_mapping(weightmap.reset_index(), 'variant', 'binweight', UNGD)
 
 ###################
 # Downsample Data #
 ###################
-# Group by family, sample to 1%
 data = training_lib.downsample_families(data, _DATA_FRACTION, UNGD)
 
 ###################
@@ -63,22 +64,27 @@ data = training_lib.downsample_families(data, _DATA_FRACTION, UNGD)
 ###################
 encoder = training_lib.feature_encoder(UNGD)
 encodings = [encoder(x) for x in data.index]
+
 Xframe = pd.DataFrame(encodings, index=data.index)
-Xframe = training_lib.expand_dummies(Xframe)
+# TODO(jsh): reinstate
+# Xframe = training_lib.expand_dummies(Xframe)
 X = np.array(Xframe)
-y = np.array(data.relgamma)
-import IPython; IPython.embed()
+y = np.array(data[['relgamma']])
+
+y_orig = y
+X_scaler = skpreproc.StandardScaler()
+X = X_scaler.fit_transform(X)
+y_scaler = skpreproc.StandardScaler()
+y = y_scaler.fit_transform(y)
 
 ###################################
 # Split Data for Cross-Validation #
 ###################################
-familymap = mapping_lib.get_mapping('variant', 'original', UNGD)
-familymap = familymap.loc[data.index]
-kfolder = skmodsel.GroupKFold(_K_FOLD_SPLITS).split(X, y, familymap)
+# familymap = mapping_lib.get_mapping('variant', 'original', UNGD)
+# familymap = familymap.loc[data.index]
+# kfolder = skmodsel.GroupKFold(_K_FOLD_SPLITS).split(X, y, familymap)
 
-cross_predictions = np.full_like(y, np.nan)
-
-weights = weightmap[data.index]
+# weights = weightmap[data.index]
 
 shutil.rmtree(PLOTDIR, ignore_errors=True)
 PLOTDIR.mkdir(parents=True, exist_ok=True)
@@ -86,13 +92,33 @@ modeldir = training_lib.LINEAR_MODELDIR
 shutil.rmtree(modeldir, ignore_errors=True)
 modeldir.mkdir(parents=True, exist_ok=True)
 # Loop cross-validation
-for i, (train, test) in enumerate(kfolder):
+
+traincheat = pd.read_csv(
+    '/home/jsh/gd/proj/lowficrispri/docs/20180626_rebase/output/train_models.train.tsv',
+    sep='\t')
+testcheat = pd.read_csv(
+    '/home/jsh/gd/proj/lowficrispri/docs/20180626_rebase/output/train_models.test.tsv',
+    sep='\t')
+trainset = set(traincheat.variant)
+testset = set(testcheat.variant)
+Xframe.reset_index(inplace=True)
+train = Xframe.loc[Xframe.variant.isin(trainset)].index
+test = Xframe.loc[Xframe.variant.isin(testset)].index
+
+fakeout = Xframe.copy()
+fakeout['subfake'] = fakeout.variant
+mapping_lib.make_mapping(fakeout, 'variant', 'subfake', UNGD)
+
+splits = list()
+splits.append((train, test))
+splits.append((test, train))
+
+for i, (train, test) in enumerate(splits):
   # Create model
-  model = training_lib.build_linear_model()
+  model = training_lib.build_linear_model(X.shape[1])
   # Feed training Data
   model_history = model.fit(X[train], y[train],
-                            # TODO(jsh): sample_weight=weights[train],
-                            # batch_size=32, epochs=30,
+                            epochs=7,
                             batch_size=10, shuffle=True,
                             validation_data=(X[test], y[test]))
   modelfile = modeldir / 'model.{i}.d5'.format(**locals())
@@ -102,8 +128,9 @@ for i, (train, test) in enumerate(kfolder):
   pickle.dump(data.index[test], open(coverfile, 'wb'))
 
   test_predictions = model.predict(X[test]).ravel()
+  test_predictions = y_scaler.inverse_transform(test_predictions)
   train_predictions = model.predict(X[train]).ravel()
-  cross_predictions[test] = test_predictions
+  train_predictions = y_scaler.inverse_transform(train_predictions)
 
   plt.figure(figsize=(6,6))
   plt.plot(model_history.history['mean_squared_error'])
