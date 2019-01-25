@@ -92,25 +92,25 @@ shutil.rmtree(modeldir, ignore_errors=True)
 modeldir.mkdir(parents=True, exist_ok=True)
 # Loop cross-validation
 
-traincheat = pd.read_csv(
+oldtrainframe = pd.read_csv(
     '/home/jsh/gd/proj/lowficrispri/docs/20180626_rebase/output/train_models.train.tsv',
     sep='\t')
-testcheat = pd.read_csv(
+oldtestframe = pd.read_csv(
     '/home/jsh/gd/proj/lowficrispri/docs/20180626_rebase/output/train_models.test.tsv',
     sep='\t')
-trainset = set(traincheat.variant)
-testset = set(testcheat.variant)
+oldtrainset = set(oldtrainframe.variant)
+oldtestset = set(oldtestframe.variant)
 Xframe.reset_index(inplace=True)
-train = Xframe.loc[Xframe.variant.isin(trainset)].index
-test = Xframe.loc[Xframe.variant.isin(testset)].index
+oldtrain = Xframe.loc[Xframe.variant.isin(oldtrainset)].index
+oldtest = Xframe.loc[Xframe.variant.isin(oldtestset)].index
 
 fakeout = Xframe.copy()
 fakeout['subfake'] = fakeout.variant
 mapping_lib.make_mapping(fakeout, 'variant', 'subfake', UNGD)
 
 splits = list()
-splits.append((train, test))
-splits.append((test, train))
+splits.append((oldtrain, oldtest))
+splits.append((oldtest, oldtrain))
 
 for i, (train, test) in enumerate(splits):
   # Create model

@@ -55,20 +55,20 @@ X = X_scaler.fit_transform(X)
 y_scaler = skpreproc.StandardScaler()
 y = y_scaler.fit_transform(y)
 
-traincheat = pd.read_csv(
+oldtraincheat = pd.read_csv(
     '/home/jsh/gd/proj/lowficrispri/docs/20180626_rebase/output/train_models.train.tsv',
     sep='\t')
-testcheat = pd.read_csv(
+oldtestcheat = pd.read_csv(
     '/home/jsh/gd/proj/lowficrispri/docs/20180626_rebase/output/train_models.test.tsv',
     sep='\t')
-trainset = set(traincheat.variant)
-testset = set(testcheat.variant)
+oldtrainset = set(oldtraincheat.variant)
+oldtestset = set(oldtestcheat.variant)
 Xframe.reset_index(inplace=True)
-train = Xframe.loc[Xframe.variant.isin(trainset)].index
-test = Xframe.loc[Xframe.variant.isin(testset)].index
+oldtrain = Xframe.loc[Xframe.variant.isin(oldtrainset)].index
+oldtest = Xframe.loc[Xframe.variant.isin(oldtestset)].index
 splits = list()
-splits.append((train, test))
-splits.append((test, train))
+splits.append((oldtrain, oldtest))
+splits.append((oldtest, oldtrain))
 
 ########################
 # Read Prediction Data #
@@ -158,6 +158,8 @@ mapping_lib.make_mapping(data.reset_index(), 'variant', 'y_pred', UNGD)
 data.dropna(subset=['y_aligned'], inplace=True)
 
 for gene, group in data.groupby('gene_name'):
+  if gene != 'dfrA':
+    continue
   predicted = group.y_pred
   measured = group.y_meas
   sprrho, _ = st.spearmanr(predicted, measured)
@@ -183,5 +185,7 @@ for gene, group in data.groupby('gene_name'):
   plotfile = PLOTDIR / 'scatter.agg.{gene}.png'.format(**locals())
   plt.savefig(plotfile)
   plt.close()
+  dumpfile = PLOTDIR / 'dump.agg.{gene}.tsv'.format(**locals())
+  group.sort_values('y_meas').to_csv(dumpfile, sep='\t')
 
 eval_lib.plot_confusion(data, PLOTDIR)

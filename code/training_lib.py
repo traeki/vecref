@@ -157,7 +157,7 @@ def feature_encoder(datadir):
       raise ValueError(template.format(**locals()))
     features = dict()
     # TODO(jsh): populate this...
-    features['mm_idx'] = float(mm_idx)
+    features['mm_idx'] = mm_idx
     mm_trans = ''.join([origplus[mm_idx], varplus[mm_idx]])
     features['mm_trans'] = mm_trans
     features['gc_cont'] = origplus.count('G') + origplus.count('C')
