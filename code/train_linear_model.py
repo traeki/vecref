@@ -34,9 +34,7 @@ _REL_PLOT_MAX = 1
 ######################
 # Read Relgamma Data #
 ######################
-# data = mapping_lib.get_mapping('variant', 'relgamma', UNGD)
-data = mapping_lib.get_mapping('variant', 'fakerg', UNGD)
-data.columns = ['relgamma']
+data = mapping_lib.get_mapping('variant', 'relgamma', UNGD)
 
 ###############
 # Filter Data #
@@ -79,9 +77,9 @@ y = y_scaler.fit_transform(y)
 ###################################
 # Split Data for Cross-Validation #
 ###################################
-# familymap = mapping_lib.get_mapping('variant', 'original', UNGD)
-# familymap = familymap.loc[data.index]
-# kfolder = skmodsel.GroupKFold(_K_FOLD_SPLITS).split(X, y, familymap)
+familymap = mapping_lib.get_mapping('variant', 'original', UNGD)
+familymap = familymap.loc[data.index]
+kfolder = skmodsel.GroupKFold(_K_FOLD_SPLITS).split(X, y, familymap)
 
 # weights = weightmap[data.index]
 
@@ -91,28 +89,7 @@ modeldir = training_lib.LINEAR_MODELDIR
 shutil.rmtree(modeldir, ignore_errors=True)
 modeldir.mkdir(parents=True, exist_ok=True)
 # Loop cross-validation
-
-oldtrainframe = pd.read_csv(
-    '/home/jsh/gd/proj/lowficrispri/docs/20180626_rebase/output/train_models.train.tsv',
-    sep='\t')
-oldtestframe = pd.read_csv(
-    '/home/jsh/gd/proj/lowficrispri/docs/20180626_rebase/output/train_models.test.tsv',
-    sep='\t')
-oldtrainset = set(oldtrainframe.variant)
-oldtestset = set(oldtestframe.variant)
-Xframe.reset_index(inplace=True)
-oldtrain = Xframe.loc[Xframe.variant.isin(oldtrainset)].index
-oldtest = Xframe.loc[Xframe.variant.isin(oldtestset)].index
-
-fakeout = Xframe.copy()
-fakeout['subfake'] = fakeout.variant
-mapping_lib.make_mapping(fakeout, 'variant', 'subfake', UNGD)
-
-splits = list()
-splits.append((oldtrain, oldtest))
-splits.append((oldtest, oldtrain))
-
-for i, (train, test) in enumerate(splits):
+for i, (train, test) in enumerate(kfolder):
   # Create model
   model = training_lib.build_linear_model(X.shape[1])
   # Feed training Data
@@ -125,11 +102,6 @@ for i, (train, test) in enumerate(splits):
   model.save(modelfile)
   coverfile = modeldir / 'model.{i}.coverage.pickle'.format(**locals())
   pickle.dump(data.index[test], open(coverfile, 'wb'))
-
-  test_predictions = model.predict(X[test]).ravel()
-  test_predictions = y_scaler.inverse_transform(test_predictions)
-  train_predictions = model.predict(X[train]).ravel()
-  train_predictions = y_scaler.inverse_transform(train_predictions)
 
   plt.figure(figsize=(6,6))
   plt.plot(model_history.history['mean_squared_error'])

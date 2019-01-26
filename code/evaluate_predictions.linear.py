@@ -33,9 +33,7 @@ _REL_PLOT_MAX = 1
 ############################
 # Re-load/process raw data #
 ############################
-# data = mapping_lib.get_mapping('variant', 'relgamma', UNGD)
-data = mapping_lib.get_mapping('variant', 'fakerg', UNGD)
-data.columns = ['relgamma']
+data = mapping_lib.get_mapping('variant', 'relgamma', UNGD)
 data = training_lib.filter_for_training(data, UNGD)
 data = data.dropna()
 familymap = mapping_lib.get_mapping('variant', 'original', UNGD)
@@ -54,21 +52,6 @@ X_scaler = skpreproc.StandardScaler()
 X = X_scaler.fit_transform(X)
 y_scaler = skpreproc.StandardScaler()
 y = y_scaler.fit_transform(y)
-
-oldtraincheat = pd.read_csv(
-    '/home/jsh/gd/proj/lowficrispri/docs/20180626_rebase/output/train_models.train.tsv',
-    sep='\t')
-oldtestcheat = pd.read_csv(
-    '/home/jsh/gd/proj/lowficrispri/docs/20180626_rebase/output/train_models.test.tsv',
-    sep='\t')
-oldtrainset = set(oldtraincheat.variant)
-oldtestset = set(oldtestcheat.variant)
-Xframe.reset_index(inplace=True)
-oldtrain = Xframe.loc[Xframe.variant.isin(oldtrainset)].index
-oldtest = Xframe.loc[Xframe.variant.isin(oldtestset)].index
-splits = list()
-splits.append((oldtrain, oldtest))
-splits.append((oldtest, oldtrain))
 
 ########################
 # Read Prediction Data #
@@ -95,7 +78,6 @@ while True:
   except OSError:
     break
 
-ALIGNED_CROSS_PRED_ = None
 
 shutil.rmtree(PLOTDIR, ignore_errors=True)
 PLOTDIR.mkdir(parents=True, exist_ok=True)
@@ -113,8 +95,6 @@ for i in range(len(models)):
   train_predictions = y_scaler.inverse_transform(train_predictions)
   train_predictions = train_predictions.reshape(-1,1)
   cross_predictions[test] = test_predictions
-  if i == 0:
-    ALIGNED_CROSS_PRED_ = cross_predictions.copy()
 
   plt.figure(figsize=(6,6))
   plt.scatter(test_predictions, y[test], marker='.', alpha=.2, label='test')
@@ -149,13 +129,10 @@ geneids = genemap.loc[locusmap.loc[data.index].locus_tag]
 geneids.index = data.index
 data['y_meas'] = data.relgamma
 data['y_pred'] = cross_predictions
-data['y_aligned'] = ALIGNED_CROSS_PRED_
 data['gene_name'] = geneids
 data['original'] = familymap.original
 
 mapping_lib.make_mapping(data.reset_index(), 'variant', 'y_pred', UNGD)
-
-data.dropna(subset=['y_aligned'], inplace=True)
 
 for gene, group in data.groupby('gene_name'):
   if gene != 'dfrA':
