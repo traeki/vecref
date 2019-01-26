@@ -8,6 +8,7 @@ import shutil
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import scipy.stats as st
 from sklearn import preprocessing as skpreproc
 from sklearn import model_selection as skmodsel
@@ -25,9 +26,9 @@ _CODEFILE = pathlib.Path(__file__).name
 PLOTDIR = (UNGD / _CODEFILE).with_suffix('.plots')
 
 _DATA_FRACTION = 1
-_K_FOLD_SPLITS = 4
+_K_FOLD_SPLITS = 3
 _REL_PLOT_MIN = -1.2
-_REL_PLOT_MAX = 0.5
+_REL_PLOT_MAX = 1
 
 
 ######################
@@ -45,24 +46,32 @@ data = data.dropna()
 ###############
 # Weight Data #
 ###############
-binmap = mapping_lib.get_mapping('variant', 'rgbin', UNGD).loc[data.index]
-binweights = gamma_lib.weight_bins(binmap.rgbin)
-weightmap = binmap.rgbin.map(binweights)
-weightmap.name = 'binweight'
-mapping_lib.make_mapping(weightmap.reset_index(), 'variant', 'binweight', UNGD)
+# binmap = mapping_lib.get_mapping('variant', 'rgbin', UNGD).loc[data.index]
+# binweights = gamma_lib.weight_bins(binmap.rgbin)
+# weightmap = binmap.rgbin.map(binweights)
+# weightmap.name = 'binweight'
+# mapping_lib.make_mapping(weightmap.reset_index(), 'variant', 'binweight', UNGD)
 
 ###################
 # Downsample Data #
 ###################
-# Group by family, sample to 1%
 data = training_lib.downsample_families(data, _DATA_FRACTION, UNGD)
 
 ###################
 # Preprocess Data #
 ###################
 encoder = training_lib.one_hot_pair_encoder(UNGD)
-X = np.stack([encoder(x)[1] for x in data.index], axis=0)
-y = np.array(data.relgamma)
+encodings = [encoder(x)[1] for x in data.index]
+X = np.stack(encodings, axis=0)
+y = np.array(data[['relgamma']], dtype=float)
+
+X_scaler = dict()
+for i in range(X.shape[1]):
+  for j in range(X.shape[3]):
+    X_scaler[(i,j)] = skpreproc.StandardScaler()
+    X[:,i,:,j] = X_scaler[(i,j)].fit_transform(X[:,i,:,j])
+y_scaler = skpreproc.StandardScaler()
+y = y_scaler.fit_transform(y)
 
 ###################################
 # Split Data for Cross-Validation #
@@ -71,9 +80,7 @@ familymap = mapping_lib.get_mapping('variant', 'original', UNGD)
 familymap = familymap.loc[data.index]
 kfolder = skmodsel.GroupKFold(_K_FOLD_SPLITS).split(X, y, familymap)
 
-cross_predictions = np.full_like(y, np.nan)
-
-weights = weightmap[data.index]
+# weights = weightmap[data.index]
 
 shutil.rmtree(PLOTDIR, ignore_errors=True)
 PLOTDIR.mkdir(parents=True, exist_ok=True)
@@ -86,7 +93,6 @@ for i, (train, test) in enumerate(kfolder):
   model = training_lib.build_conv_net_model()
   # Feed training Data
   model_history = model.fit(X[train], y[train],
-                            sample_weight=weights[train],
                             batch_size=32, epochs=30,
                             validation_data=(X[test], y[test]))
   modelfile = modeldir / 'model.{i}.d5'.format(**locals())
@@ -94,10 +100,6 @@ for i, (train, test) in enumerate(kfolder):
   model.save(modelfile)
   coverfile = modeldir / 'model.{i}.coverage.pickle'.format(**locals())
   pickle.dump(data.index[test], open(coverfile, 'wb'))
-
-  test_predictions = model.predict(X[test]).ravel()
-  train_predictions = model.predict(X[train]).ravel()
-  cross_predictions[test] = test_predictions
 
   plt.figure(figsize=(6,6))
   plt.plot(model_history.history['mean_squared_error'])

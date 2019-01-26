@@ -7,11 +7,12 @@ import pickle
 import shutil
 import sys
 
+from keras.models import load_model
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import scipy.stats as st
-
-from keras.models import load_model
+from sklearn import preprocessing as skpreproc
 
 import eval_lib
 import gamma_lib
@@ -27,7 +28,9 @@ _CODEFILE = pathlib.Path(__file__).name
 PLOTDIR = (UNGD / _CODEFILE).with_suffix('.plots')
 
 _REL_PLOT_MIN = -1.2
-_REL_PLOT_MAX = 0.5
+_REL_PLOT_MAX = 1
+
+_FIGDPI = 100
 
 ############################
 # Re-load/process raw data #
@@ -38,9 +41,18 @@ data = data.dropna()
 familymap = mapping_lib.get_mapping('variant', 'original', UNGD)
 familymap = familymap.loc[data.index]
 encoder = training_lib.one_hot_pair_encoder(UNGD)
-X = np.stack([encoder(x)[1] for x in data.index], axis=0)
-y = np.array(data.relgamma)
+encodings = [encoder(x)[1] for x in data.index]
+X = np.stack(encodings, axis=0)
+y = np.array(data[['relgamma']], dtype=float)
 cross_predictions = np.full_like(y, np.nan)
+
+X_scaler = dict()
+for i in range(X.shape[1]):
+  for j in range(X.shape[3]):
+    X_scaler[(i,j)] = skpreproc.StandardScaler()
+    X[:,i,:,j] = X_scaler[(i,j)].fit_transform(X[:,i,:,j])
+y_scaler = skpreproc.StandardScaler()
+y_scaler.fit(y)
 
 ########################
 # Read Prediction Data #
@@ -77,35 +89,43 @@ for i in range(len(models)):
   testmask = data.index.isin(cover)
   test = testmask.nonzero()[0]
   train = (~testmask).nonzero()[0]
-  test_predictions = model.predict(X[test]).ravel()
-  train_predictions = model.predict(X[train]).ravel()
+  test_predictions = model.predict(X[test])
+  test_predictions = y_scaler.inverse_transform(test_predictions)
+  test_predictions = test_predictions.reshape(-1,1)
+  train_predictions = model.predict(X[train])
+  train_predictions = y_scaler.inverse_transform(train_predictions)
+  train_predictions = train_predictions.reshape(-1,1)
   cross_predictions[test] = test_predictions
 
   plt.figure(figsize=(6,6))
   plt.scatter(test_predictions, y[test], marker='.', alpha=.2, label='test')
   plt.scatter(train_predictions, y[train], marker='.', alpha=.2, label='train')
-  plt.title('Model Predictions [Fold {i}]'.format(**locals()))
+  plt.title('Predictions vs. Measurements\n[Fold {i}]'.format(**locals()))
   plt.xlabel('predicted')
   plt.ylabel('measured')
   plt.xlim(_REL_PLOT_MIN, _REL_PLOT_MAX)
   plt.ylim(_REL_PLOT_MIN, _REL_PLOT_MAX)
   plt.gca().invert_xaxis()
   plt.gca().invert_yaxis()
+  plt.legend(loc='lower left', fontsize='small')
+  plt.tight_layout()
   plotfile = PLOTDIR / 'scatter.{i}.png'.format(**locals())
-  plt.savefig(plotfile)
+  plt.savefig(plotfile, dpi=_FIGDPI)
   plt.close()
 
 plt.figure(figsize=(6,6))
-plt.scatter(cross_predictions, y, marker='.', alpha=.2)
-plt.title('Model Predictions [agg]'.format(**locals()))
+plt.scatter(cross_predictions, y, marker='.', alpha=.2, label='X-prediction')
+plt.title('Predictions vs. Measurements\n[agg]'.format(**locals()))
 plt.xlabel('Predicted relative γ')
 plt.ylabel('Measured relative γ')
 plt.xlim(_REL_PLOT_MIN, _REL_PLOT_MAX)
 plt.ylim(_REL_PLOT_MIN, _REL_PLOT_MAX)
 plt.gca().invert_xaxis()
 plt.gca().invert_yaxis()
+plt.legend(loc='lower left', fontsize='small')
+plt.tight_layout()
 plotfile = PLOTDIR / 'scatter.agg.png'.format(**locals())
-plt.savefig(plotfile)
+plt.savefig(plotfile, dpi=_FIGDPI)
 plt.close()
 
 locusmap = mapping_lib.get_mapping('variant', 'locus_tag', UNGD)
@@ -137,13 +157,14 @@ for gene, group in data.groupby('gene_name'):
   for original, subgroup in subgrouper:
     predicted = subgroup.y_pred
     measured = subgroup.y_meas
-    g = plt.scatter(predicted, measured, s=6, alpha=1)
+    g = plt.scatter(predicted, measured, s=6, alpha=1, label=original)
   plt.gca().invert_xaxis()
   plt.gca().invert_yaxis()
-  plt.text(_REL_PLOT_MAX - 0.1, _REL_PLOT_MIN + 0.1, template.format(**vars()))
+  plt.text(_REL_PLOT_MAX - 0.2, _REL_PLOT_MIN + 0.2, template.format(**vars()))
+  plt.legend(loc='lower left', fontsize='xx-small')
   plt.tight_layout()
   plotfile = PLOTDIR / 'scatter.agg.{gene}.png'.format(**locals())
-  plt.savefig(plotfile)
+  plt.savefig(plotfile, dpi=_FIGDPI)
   plt.close()
 
 eval_lib.plot_confusion(data, PLOTDIR)
