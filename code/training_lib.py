@@ -75,7 +75,6 @@ def build_conv_net_model(hyperparams=_DEFAULT_NN_HYPERPARAMS):
 
 def build_linear_model(num_features, *, hyperparams=_DEFAULT_LINEAR_HYPERPARAMS):
   model = Sequential()
-  # model.add(Dense(1, input_dim=num_features, activation='relu'))
   model.add(Dense(1, input_dim=num_features, activation='linear'))
   model.compile(loss='mse', metrics=['mse'], optimizer='adam')
   return model

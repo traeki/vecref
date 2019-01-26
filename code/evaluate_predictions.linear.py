@@ -141,8 +141,6 @@ data['original'] = familymap.original
 mapping_lib.make_mapping(data.reset_index(), 'variant', 'y_pred', UNGD)
 
 for gene, group in data.groupby('gene_name'):
-  if gene != 'dfrA':
-    continue
   predicted = group.y_pred
   measured = group.y_meas
   sprrho, _ = st.spearmanr(predicted, measured)
@@ -169,7 +167,5 @@ for gene, group in data.groupby('gene_name'):
   plotfile = PLOTDIR / 'scatter.agg.{gene}.png'.format(**locals())
   plt.savefig(plotfile, dpi=_FIGDPI)
   plt.close()
-  dumpfile = PLOTDIR / 'dump.agg.{gene}.tsv'.format(**locals())
-  group.sort_values('y_meas').to_csv(dumpfile, sep='\t')
 
 eval_lib.plot_confusion(data, PLOTDIR)

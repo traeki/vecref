@@ -43,15 +43,6 @@ data = mapping_lib.get_mapping('variant', 'relgamma', UNGD)
 data = training_lib.filter_for_training(data, UNGD)
 data = data.dropna()
 
-###############
-# Weight Data #
-###############
-# binmap = mapping_lib.get_mapping('variant', 'rgbin', UNGD).loc[data.index]
-# binweights = gamma_lib.weight_bins(binmap.rgbin)
-# weightmap = binmap.rgbin.map(binweights)
-# weightmap.name = 'binweight'
-# mapping_lib.make_mapping(weightmap.reset_index(), 'variant', 'binweight', UNGD)
-
 ###################
 # Downsample Data #
 ###################
