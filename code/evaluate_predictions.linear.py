@@ -30,6 +30,8 @@ PLOTDIR = (UNGD / _CODEFILE).with_suffix('.plots')
 _REL_PLOT_MIN = -1.2
 _REL_PLOT_MAX = 1
 
+_FIGDPI = 300
+
 ############################
 # Re-load/process raw data #
 ############################
@@ -51,7 +53,7 @@ y_orig = y
 X_scaler = skpreproc.StandardScaler()
 X = X_scaler.fit_transform(X)
 y_scaler = skpreproc.StandardScaler()
-y = y_scaler.fit_transform(y)
+y_scaler.fit(y)
 
 ########################
 # Read Prediction Data #
@@ -99,28 +101,32 @@ for i in range(len(models)):
   plt.figure(figsize=(6,6))
   plt.scatter(test_predictions, y[test], marker='.', alpha=.2, label='test')
   plt.scatter(train_predictions, y[train], marker='.', alpha=.2, label='train')
-  plt.title('Model Predictions [Fold {i}]'.format(**locals()))
+  plt.title('Predictions vs. Measurements\n[Fold {i}]'.format(**locals()))
   plt.xlabel('predicted')
   plt.ylabel('measured')
   plt.xlim(_REL_PLOT_MIN, _REL_PLOT_MAX)
   plt.ylim(_REL_PLOT_MIN, _REL_PLOT_MAX)
   plt.gca().invert_xaxis()
   plt.gca().invert_yaxis()
+  plt.legend(loc='lower left', fontsize='small')
+  plt.tight_layout()
   plotfile = PLOTDIR / 'scatter.{i}.png'.format(**locals())
-  plt.savefig(plotfile)
+  plt.savefig(plotfile, dpi=_FIGDPI)
   plt.close()
 
 plt.figure(figsize=(6,6))
-plt.scatter(cross_predictions, y, marker='.', alpha=.2)
-plt.title('Model Predictions [agg]'.format(**locals()))
+plt.scatter(cross_predictions, y, marker='.', alpha=.2, label='X-prediction')
+plt.title('Predictions vs. Measurements\n[agg]'.format(**locals()))
 plt.xlabel('Predicted relative γ')
 plt.ylabel('Measured relative γ')
 plt.xlim(_REL_PLOT_MIN, _REL_PLOT_MAX)
 plt.ylim(_REL_PLOT_MIN, _REL_PLOT_MAX)
 plt.gca().invert_xaxis()
 plt.gca().invert_yaxis()
+plt.legend(loc='lower left', fontsize='small')
+plt.tight_layout()
 plotfile = PLOTDIR / 'scatter.agg.png'.format(**locals())
-plt.savefig(plotfile)
+plt.savefig(plotfile, dpi=_FIGDPI)
 plt.close()
 
 locusmap = mapping_lib.get_mapping('variant', 'locus_tag', UNGD)
@@ -154,13 +160,14 @@ for gene, group in data.groupby('gene_name'):
   for original, subgroup in subgrouper:
     predicted = subgroup.y_pred
     measured = subgroup.y_meas
-    g = plt.scatter(predicted, measured, s=6, alpha=1)
+    g = plt.scatter(predicted, measured, s=6, alpha=1, label=original)
   plt.gca().invert_xaxis()
   plt.gca().invert_yaxis()
   plt.text(_REL_PLOT_MAX - 0.2, _REL_PLOT_MIN + 0.2, template.format(**vars()))
+  plt.legend(loc='lower left', fontsize='xx-small')
   plt.tight_layout()
   plotfile = PLOTDIR / 'scatter.agg.{gene}.png'.format(**locals())
-  plt.savefig(plotfile)
+  plt.savefig(plotfile, dpi=_FIGDPI)
   plt.close()
   dumpfile = PLOTDIR / 'dump.agg.{gene}.tsv'.format(**locals())
   group.sort_values('y_meas').to_csv(dumpfile, sep='\t')
