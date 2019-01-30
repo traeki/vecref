@@ -1,0 +1,28 @@
+# old model, trained on 21-base input
+model = Sequential()
+model.add(Conv2D(64, kernel_size=(4,3), padding='same', activation='relu', input_shape=(21,4,2)))
+model.add(MaxPool2D(pool_size=(2,1))) 
+model.add(Conv2D(128, (2,2), activation='relu'))
+model.add(MaxPool2D(pool_size=(2,1)))
+model.add(Flatten())
+model.add(Dense(768, activation='relu'))
+model.add(Dropout(0.5))
+model.add(Dense(384, activation='relu'))
+model.add(Dropout(0.5))
+model.add(Dense(1))
+model.compile(loss='mse', metrics=['mse'], optimizer='adam')
+
+
+# new model, trained on 60-base input
+model = Sequential()
+model.add(Conv2D(filters=32, kernel_size=(4,4), activation='linear', padding='same', input_shape=(4,60,2), data_format='channels_last'))
+model.add(Conv2D(filters=32, kernel_size=(4,4), activation='linear', padding='same', data_format='channels_last'))
+model.add(MaxPool2D(pool_size=(2,1), padding='same', data_format='channels_last'))
+model.add(Dropout(rate=0.1))
+model.add(Flatten())
+model.add(Dense(units=512, activation='sigmoid'))
+model.add(Dropout(rate=0.1))
+model.add(Dense(units=128, activation='sigmoid'))
+model.add(Dropout(rate=0.1))
+model.add(Dense(1, activation='linear'))
+model.compile(loss='mse', metrics=['mse'], optimizer='adam')
