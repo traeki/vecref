@@ -46,7 +46,7 @@ def plot_confusion(data, plotdir):
                         yticklabels=True)
   # heatmap.yaxis.set_ticklabels(classes)#, rotation=0, ha='right')
   # heatmap.xaxis.set_ticklabels(classes)#, rotation=45, ha='right')
-  plt.title('Absolute gamma Confusion Matrix')
+  plt.title('Gamma Confusion Matrix\n[Norm: Measured]')
   plt.ylabel('True label')
   plt.xlabel('Predicted label')
   plt.tight_layout()
@@ -57,11 +57,11 @@ def plot_confusion(data, plotdir):
   prednorm_cm = normalize(cm, axis=0, norm='l1')
   plt.figure(figsize=(8,6))
   heatmap = sns.heatmap(prednorm_cm, annot=True, fmt=".2f", cmap='YlGnBu',
-                        xticklabels=True,
-                        yticklabels=True)
+                        vmin=0.0, vmax=1.0,
+                        xticklabels=True, yticklabels=True)
   # heatmap.yaxis.set_ticklabels(classes)#, rotation=0, ha='right')
   # heatmap.xaxis.set_ticklabels(classes)#, rotation=45, ha='right')
-  plt.title('Absolute gamma Confusion Matrix')
+  plt.title('Gamma Confusion Matrix\n[Norm: Predicted]')
   plt.ylabel('True label')
   plt.xlabel('Predicted label')
   plt.tight_layout()

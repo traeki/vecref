@@ -80,7 +80,6 @@ while True:
   except OSError:
     break
 
-
 shutil.rmtree(PLOTDIR, ignore_errors=True)
 PLOTDIR.mkdir(parents=True, exist_ok=True)
 # Loop cross-validation
@@ -88,19 +87,19 @@ for i in range(len(models)):
   model = models[i]
   cover = coverage[i]
   testmask = data.index.isin(cover)
-  test = testmask.nonzero()[0]
   train = (~testmask).nonzero()[0]
-  test_predictions = model.predict(X[test])
-  test_predictions = y_scaler.inverse_transform(test_predictions)
-  test_predictions = test_predictions.reshape(-1,1)
+  test = testmask.nonzero()[0]
   train_predictions = model.predict(X[train])
   train_predictions = y_scaler.inverse_transform(train_predictions)
   train_predictions = train_predictions.reshape(-1,1)
+  test_predictions = model.predict(X[test])
+  test_predictions = y_scaler.inverse_transform(test_predictions)
+  test_predictions = test_predictions.reshape(-1,1)
   cross_predictions[test] = test_predictions
 
   plt.figure(figsize=(6,6))
-  plt.scatter(test_predictions, y[test], marker='.', alpha=.2, label='test')
   plt.scatter(train_predictions, y[train], marker='.', alpha=.2, label='train')
+  plt.scatter(test_predictions, y[test], marker='.', alpha=.2, label='test')
   plt.title('Predictions vs. Measurements\n[Fold {i}]'.format(**locals()))
   plt.xlabel('predicted')
   plt.ylabel('measured')
@@ -108,6 +107,10 @@ for i in range(len(models)):
   plt.ylim(_REL_PLOT_MIN, _REL_PLOT_MAX)
   plt.gca().invert_xaxis()
   plt.gca().invert_yaxis()
+  template = 'Train: {trainrho:.2f}\nTest: {testrho:.2f}'
+  trainrho, _ = st.pearsonr(train_predictions.ravel(), y[train].ravel())
+  testrho, _ = st.pearsonr(test_predictions.ravel(), y[test].ravel())
+  plt.text(_REL_PLOT_MAX - 0.2, _REL_PLOT_MIN + 0.2, template.format(**locals()))
   plt.legend(loc='lower left', fontsize='small')
   plt.tight_layout()
   plotfile = PLOTDIR / 'scatter.{i}.png'.format(**locals())
@@ -140,11 +143,16 @@ data['original'] = familymap.original
 
 mapping_lib.make_mapping(data.reset_index(), 'variant', 'y_pred', UNGD)
 
+rhos = list()
+
 for gene, group in data.groupby('gene_name'):
   predicted = group.y_pred
   measured = group.y_meas
   sprrho, _ = st.spearmanr(predicted, measured)
   prsrho, _ = st.pearsonr(predicted, measured)
+  rhos.append(pd.Series({'gene':gene,
+                         'sprrho_linear':sprrho,
+                         'prsrho_linear':prsrho}))
   plt.figure(figsize=(6,6))
   template = 'Predictions vs. Measurements\n{gene}'
   main_title_str = template.format(**locals())
@@ -168,4 +176,7 @@ for gene, group in data.groupby('gene_name'):
   plt.savefig(plotfile, dpi=_FIGDPI)
   plt.close()
 
+rhoframe = pd.concat(rhos, axis=1).T
+mapping_lib.make_mapping(rhoframe, 'gene', 'sprrho_linear', UNGD)
+mapping_lib.make_mapping(rhoframe, 'gene', 'prsrho_linear', UNGD)
 eval_lib.plot_confusion(data, PLOTDIR)

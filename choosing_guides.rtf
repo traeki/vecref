@@ -1,0 +1,12 @@
+1.  Gather all possible guides
+    *   OLDBASE = /home/jsh/gd/proj/lowficrispri/docs/20180626_rebase/
+    *   gcf.BSU_TARGETS = OLDBASE/data/bsu.NC_000964.targets.all.tsv
+    *   Select down to "important" genes, via OLDBASE/output/choose_important_genes.tsv
+    *   TODO(jsh): Modify sgRNA design code for Jason and also to keep/I.D. promoters
+2.  Generate all possible 1-mismatch variants
+3.  Prep pairs for training
+    *   Where possible make prep modular
+4.  Train {linear,cnn} model on current measured data
+    *   Where possible make model use modular
+5.  Load model and predict (relative) phenotypes for all pairs
+6.  TODO(jsh): selection of guides

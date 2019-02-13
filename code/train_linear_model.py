@@ -29,6 +29,8 @@ _DATA_FRACTION = 1
 _K_FOLD_SPLITS = 3
 _REL_PLOT_MIN = -1.2
 _REL_PLOT_MAX = 1
+_EPOCHS = 30
+_BATCH_SIZE = 32
 
 
 ######################
@@ -85,8 +87,8 @@ for i, (train, test) in enumerate(kfolder):
   model = training_lib.build_linear_model(X.shape[1])
   # Feed training Data
   model_history = model.fit(X[train], y[train],
-                            epochs=7,
-                            batch_size=10, shuffle=True,
+                            epochs=_EPOCHS, batch_size=_BATCH_SIZE,
+                            shuffle=True,
                             validation_data=(X[test], y[test]))
   modelfile = modeldir / 'model.{i}.d5'.format(**locals())
   modelfile = str(modelfile)  # NOTE(jsh): workaround until Keras PR #11466

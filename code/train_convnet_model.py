@@ -29,6 +29,8 @@ _DATA_FRACTION = 1
 _K_FOLD_SPLITS = 3
 _REL_PLOT_MIN = -1.2
 _REL_PLOT_MAX = 1
+_BATCH_SIZE = 32
+_EPOCHS = 10
 
 
 ######################
@@ -93,7 +95,7 @@ for i, (train, test) in enumerate(kfolder):
   model = training_lib.build_conv_net_model()
   # Feed training Data
   model_history = model.fit(X[train], y[train],
-                            batch_size=32, epochs=30,
+                            batch_size=_BATCH_SIZE, epochs=_EPOCHS,
                             validation_data=(X[test], y[test]))
   modelfile = modeldir / 'model.{i}.d5'.format(**locals())
   modelfile = str(modelfile)  # NOTE(jsh): workaround until Keras PR #11466
