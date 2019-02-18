@@ -30,21 +30,24 @@ if __name__ == '__main__':
   comps = pd.read_csv(COMPS, sep='\t')
   var_rg = mapping_lib.get_mapping('variant', 'relgamma', UNGD)
   comps['relgamma'] = comps.variant.map(var_rg.relgamma)
+  important = set(pd.read_csv(choice_lib.GENES_W_PHENO,
+                              sep='\t', header=None)[0])
   # actually loop over locus tags and choose measure
   old_guides = dict()
   new_guides = dict()
-  for lt in preds.locus_tag.unique():
-    logging.info('Examining options for locus_tag: {lt}...'.format(**locals()))
-    lt_comps = comps.loc[comps.locus_tag == lt]
-    lt_preds = preds.loc[preds.locus_tag == lt]
-    lt_parents = choice_lib.pick_n_parents(lt_comps,
-                                           lt_preds,
-                                           N_FAMILIES)
-    old_guides[lt] = choice_lib.choose_n_meas(lt_comps,
-                                              OLD_GUIDES_PER_LOCUS)
-    new_guides[lt] = choice_lib.choose_n_for_each(lt_parents,
-                                                  lt_preds,
-                                                  lt_comps,
-                                                  NEW_GUIDES_PER_FAMILY)
+  for locus in important:
+    template = 'Examining options for locus_tag: {locus}...'
+    logging.info(template.format(**locals()))
+    locus_comps = comps.loc[comps.locus_tag == locus]
+    locus_preds = preds.loc[preds.locus_tag == locus]
+    locus_parents = choice_lib.pick_n_parents(locus_comps,
+                                              locus_preds,
+                                              N_FAMILIES)
+    old_guides[locus] = choice_lib.choose_n_meas(locus_comps,
+                                                 OLD_GUIDES_PER_LOCUS)
+    new_guides[locus] = choice_lib.choose_n_for_each(locus_parents,
+                                                     locus_preds,
+                                                     locus_comps,
+                                                     NEW_GUIDES_PER_FAMILY)
   import IPython; IPython.embed()
   # TODO(jsh): aggregate and sanity check full sets
