@@ -47,7 +47,7 @@ for lt in preds.locus_tag.unique():
                                          lt_preds,
                                          N_FAMILIES)
   old_guides[lt] = choice_lib.choose_n_meas(measured,
-                                            OLD_GUIDES_PER_FAMILY)
+                                            OLD_GUIDES_PER_LOCUS)
   new_guides[lt] = choice_lib.choose_n_for_each(lt_parents,
                                                 lt_preds,
                                                 lt_measured,
