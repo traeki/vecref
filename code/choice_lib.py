@@ -56,12 +56,52 @@ def pick_n_parents(lt_comps, lt_preds, n):
 
 def choose_n_meas(measured, n):
   chosen = set()
-  # TODO(jsh): Actually choose n guides (divided over loci) with good coverage.
+  lt = measured.locus_tag.unique()[0]
+  measured = measured.dropna()
+  measured = measured.copy()
+  if measured.shape[0] < n:
+    lt = measured[0]
+    template = 'Fewer than {n} measured guides for locus {lt}'
+    logging.fatal(template.format(**locals()))
+  # ascribe bins
+  bins = gamma_lib.bin_relgammas(measured.relgamma, gamma_lib.relgamma_bins())
+  measured['bin'] = bins
+  # choose guides for each bin (skipping 0)
+  seen_bins = set(measured.bin.unique())
+  good_bins = len(seen_bins - {0})
+  k = n // good_bins
+  for b in seen_bins:
+    if b == 0:
+      continue
+    bin_items = measured.loc[measured.bin == b]
+    if bin_items.shape[0] <= k:
+      chosen.update(bin_items.variant)
+    else:
+      poss = list(bin_items.variant)
+      found = 0
+      while found < k:
+        itry = random.choice(poss)
+        if itry not in chosen:
+          found += 1
+          chosen.add(itry)
+  z = (n - len(chosen))
+  found = 0
+  poss = list(measured.loc[~measured.variant.isin(chosen)].variant)
+  while found < z:
+    itry = random.choice(poss)
+    if itry not in chosen:
+      found += 1
+      chosen.add(itry)
+  # TODO(jsh): skip bin 0 for previous step, use remaining guides as last resort
+  import IPython; IPython.embed()
+  logging.fatal('Actually choose n guides (divided over loci) with good coverage.')
+  sys.exit(2)
   return chosen
 
 def choose_n_for_each(parents, preds, comps, n):
   chosen = set()
-  # TODO(jsh): Actually choose n guides for each parent, no comps.
+  logging.fatal('Actually choose n guides for each parent, no comps.')
+  sys.exit(2)
   return chosen
 
 def all_single_variants(parents):

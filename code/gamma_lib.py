@@ -18,9 +18,9 @@ _NORMAL_SIZE = float(50 * 1000 * 1000)
 _THRESHOLD = 50
 _PSEUDO = 1
 _Z_THRESHOLD = 12
-_BIN_MIN = -0.9
-_BIN_MAX = -0.1
-_NBINS = 5
+BIN_MIN = -0.9
+BIN_MAX = -0.1
+NBINS = 5
 
 def _namespan_func(k):
   def namespan(id_pair):
@@ -216,7 +216,7 @@ def map_variant_to_mean_full_relative_gamma(datadir):
   mapping_lib.make_mapping(relgammas, 'variant', 'relgamma', datadir)
 
 def relgamma_bins():
-  return np.linspace(_BIN_MIN, _BIN_MAX, _NBINS-1)
+  return np.linspace(BIN_MIN, BIN_MAX, NBINS-1)
 
 def bin_relgammas(relgammas, bins):
   rgbins = np.digitize(relgammas, bins)
