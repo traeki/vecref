@@ -6,22 +6,14 @@ import pathlib
 import random
 import sys
 
+from keras.models import load_model
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
-
-from keras.layers import Conv2D
-from keras.layers import Activation
-from keras.layers import MaxPool2D
-from keras.layers import Flatten
-from keras.layers import Dense
-from keras.layers import AvgPool2D
-from keras.layers import Dropout
-from keras.models import Sequential
-
 from sklearn.preprocessing import normalize
+from sklearn.preprocessing import StandardScaler
 
 import mapping_lib
 import gamma_lib
@@ -31,6 +23,40 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
 np.set_printoptions(precision=4, suppress=True)
 
+
+def fetch_training_data(datadir):
+  data = mapping_lib.get_mapping('variant', 'relgamma', datadir)
+  data = training_lib.filter_for_training(data, datadir)
+  data = data.dropna()
+  data.reset_index(inplace=True)
+  var_orig = mapping_lib.get_mapping('variant', 'original', datadir).original
+  var_pam = mapping_lib.get_mapping('variant', 'pam', datadir).pam
+  data['original'] = data.variant.map(var_orig)
+  data['pam'] = data.variant.map(var_pam)
+  return data
+
+def featurize_training_data(encoder, data, datadir):
+  encodings = data.apply(encoder, axis=1)
+  Xframe = encodings.set_index(data.variant)
+  Xframe = training_lib.expand_dummies(Xframe)
+  X = np.array(Xframe, dtype=float)
+  y = np.array(data[['relgamma']], dtype=float)
+  return X, y
+
+def scale_training_data_linear(X, y):
+  """Build X/y scalers
+
+  Returns (X, X_scaler, y, y_scaler):
+    X_scaler: scaler fit to full original dataset feature-space
+    y_scaler: scaler fit to full original dataset outputs
+    X: X_xcaler.transform(X)
+    y: y_scaler.transform(y)
+  """
+  X_scaler = StandardScaler()
+  X = X_scaler.fit_transform(X)
+  y_scaler = StandardScaler()
+  y = y_scaler.fit_transform(y)
+  return (X_scaler, y_scaler, X, y)
 
 def plot_confusion(data, plotdir):
   data = data.dropna()

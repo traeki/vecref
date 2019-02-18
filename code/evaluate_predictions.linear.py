@@ -35,25 +35,13 @@ _FIGDPI = 300
 ############################
 # Re-load/process raw data #
 ############################
-data = mapping_lib.get_mapping('variant', 'relgamma', UNGD)
-data = training_lib.filter_for_training(data, UNGD)
-data = data.dropna()
+data = eval_lib.fetch_training_data(UNGD)
 familymap = mapping_lib.get_mapping('variant', 'original', UNGD)
 familymap = familymap.loc[data.index]
-
-encoder = training_lib.feature_encoder(UNGD)
-encodings = [encoder(x) for x in data.index]
-Xframe = pd.DataFrame(encodings, index=data.index)
-Xframe = training_lib.expand_dummies(Xframe)
-X = np.array(Xframe, dtype=float)
-y = np.array(data[['relgamma']], dtype=float)
+(_, X, y) = eval_lib.featurize_training_data(data, UNGD)
 cross_predictions = np.full_like(y, np.nan)
-
 y_orig = y
-X_scaler = skpreproc.StandardScaler()
-X = X_scaler.fit_transform(X)
-y_scaler = skpreproc.StandardScaler()
-y_scaler.fit(y)
+X_scaler, y_scaler, X, y = eval_lib.scale_training_data_linear(X, y)
 
 ########################
 # Read Prediction Data #

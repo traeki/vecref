@@ -115,6 +115,21 @@ def one_hot_pair_encoder(datadir):
   return encoder
 
 
+def get_convnet_encoder():
+  bases = ['A', 'C', 'G', 'T']
+  enc = skpreproc.OneHotEncoder(categories=[bases], sparse=False)
+  def encoder(inrow):
+    varplus = inrow.variant + inrow.pam[0]
+    oriplus = inrow.original + inrow.pam[0]
+    V = np.array(list(varplus))
+    V = V.reshape(len(varplus), 1)
+    O = np.array(list(origplus))
+    O = O.reshape(len(origplus), 1)
+    onehot = np.stack([enc.transform(V), enc.transform(O)], axis=-1)
+    return onehot
+  return encoder
+
+
 def expand_dummies(frame):
   categories = dict()
   bases = ['A', 'C', 'G', 'T', 'N']
@@ -136,13 +151,12 @@ def expand_dummies(frame):
   return pd.get_dummies(frame)
 
 
-def feature_encoder(datadir):
-  var_orig = mapping_lib.get_mapping('variant', 'original', datadir)
-  var_pam = mapping_lib.get_mapping('variant', 'pam', datadir)
-  def encoder(seq):
-    orig = var_orig.loc[seq].original
-    pam = var_pam.loc[seq].pam
-    varplus = seq + pam[0]
+def get_linear_encoder():
+  def encoder(inrow):
+    vari = inrow.variant
+    orig = inrow.original
+    pam = inrow.pam
+    varplus = vari + pam[0]
     origplus = orig + pam[0]
     mm_idx = None
     for i in range(len(varplus)):
