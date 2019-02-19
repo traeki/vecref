@@ -215,6 +215,25 @@ def map_variant_to_mean_full_relative_gamma(datadir):
   relgammas.reset_index(inplace=True)
   mapping_lib.make_mapping(relgammas, 'variant', 'relgamma', datadir)
 
+def map_variant_to_mean_full_relative_gamma_unfiltered(datadir):
+  child_gammas = get_child_gammas(datadir)
+  parent_gammas = get_parent_gammas(datadir)
+  varcon = mapping_lib.get_mapping('variant', 'control', datadir)
+  vargamma = mapping_lib.get_mapping('variant', 'gamma', datadir)
+  conmask = vargamma.index.intersection(varcon.loc[varcon.control].index)
+  congamma = vargamma.loc[conmask]
+  sigma = congamma.std().gamma
+  z = -sigma # easier to read
+  unfiltered = (child_gammas / parent_gammas) - 1
+  geodelt_gammas = unfiltered
+  geodelt_gammas = geodelt_gammas.stack(level=1, dropna=False).reset_index()
+  relgammas = geodelt_gammas.loc[geodelt_gammas.span == '03']
+  relgammas = relgammas.drop('span', axis=1)
+  relgammas.set_index('variant', inplace=True)
+  relgammas = pd.DataFrame(relgammas.mean(axis=1), columns=['unfiltered_relgamma'])
+  relgammas.reset_index(inplace=True)
+  mapping_lib.make_mapping(relgammas, 'variant', 'unfiltered_relgamma', datadir)
+
 def relgamma_bins():
   return np.linspace(BIN_MIN, BIN_MAX, NBINS-1)
 

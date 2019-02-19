@@ -5,8 +5,10 @@ import logging
 import pathlib
 
 from keras.models import load_model
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
 
 import choice_lib
 import mapping_lib
@@ -22,13 +24,16 @@ _CODEFILE = pathlib.Path(__file__).name
 N_FAMILIES = 10
 OLD_GUIDES_PER_LOCUS = 10
 NEW_GUIDES_PER_FAMILY = 10
+OLDGUIDEFILE = (UNGD / _CODEFILE).with_suffix('.old.guides.tsv')
+NEWGUIDEFILE = (UNGD / _CODEFILE).with_suffix('.new.guides.tsv')
 
 if __name__ == '__main__':
   logging.info('Reading preds from {linear_preds}...'.format(**locals()))
   preds = pd.read_csv(linear_preds, sep='\t')
   logging.info('Reading comps from {COMPS}...'.format(**locals()))
   comps = pd.read_csv(COMPS, sep='\t')
-  var_rg = mapping_lib.get_mapping('variant', 'relgamma', UNGD)
+  var_rg = mapping_lib.get_mapping('variant', 'unfiltered_relgamma', UNGD)
+  var_rg.rename(columns={'unfiltered_relgamma':'relgamma'}, inplace=True)
   comps['relgamma'] = comps.variant.map(var_rg.relgamma)
   important = set(pd.read_csv(choice_lib.GENES_W_PHENO,
                               sep='\t', header=None)[0])
@@ -49,5 +54,13 @@ if __name__ == '__main__':
                                                      locus_preds,
                                                      locus_comps,
                                                      NEW_GUIDES_PER_FAMILY)
-  import IPython; IPython.embed()
-  # TODO(jsh): aggregate and sanity check full sets
+  allold = set()
+  for locus in old_guides:
+    allold.update(old_guides[locus])
+  allnew = set()
+  for locus in new_guides:
+    allnew.update(new_guides[locus])
+  oldframe = comps.loc[comps.variant.isin(allold)]
+  oldframe.to_csv(OLDGUIDEFILE, sep='\t', index=False)
+  newframe = preds.loc[preds.variant.isin(allnew)]
+  newframe.to_csv(NEWGUIDEFILE, sep='\t', index=False)

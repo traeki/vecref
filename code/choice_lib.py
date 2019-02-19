@@ -83,7 +83,7 @@ def choose_n_meas(measured, n):
   z = (n - len(chosen))
   # Grab up to z preferring non-max efficacy
   leftover = set(usable.variant) - chosen
-  toosick = set(usable.loc[usable.bin == bins[0]].variant)
+  toosick = set(usable.loc[usable.bin == bins[-1]].variant)
   okset = leftover - toosick
   if len(okset) >= z:
     chosen.update(random.sample(okset, z))
@@ -96,15 +96,16 @@ def choose_n_meas(measured, n):
 def choose_n_for_each(parents, preds, comps, n):
   chosen = set()
   for parent in parents:
+    needed = n
     family_preds = preds.loc[preds.original == parent]
     family_comps = comps.loc[comps.original == parent]
     compset = set(family_comps.variant)
     used_mask = family_preds.variant.isin(chosen)
     comp_mask = family_preds.variant.isin(compset)
     family_remaining = family_preds.loc[~used_mask & ~comp_mask]
-    if family_remaining.shape[0] < n:
+    if family_remaining.shape[0] < needed:
       chosen.update(set(family_remaining.variant))
-      delta = n - family_remaining.shape[0]
+      delta = needed - family_remaining.shape[0]
       template = 'Grabbing {delta} comps for {parent}.'
       logging.warn(template.format(**locals()))
       family_remaining = family_preds.loc[~used_mask & comp_mask]
@@ -113,7 +114,10 @@ def choose_n_for_each(parents, preds, comps, n):
         template = '...but only had {compsleft}/{delta} :-('
         logging.warn(template.format(**locals()))
         chosen.update(set(family_remaining.variant))
-    chosen.update(choose_n_by_pred(family_remaining, n))
+      else:
+        needed = delta
+    picks = choose_n_by_pred(family_remaining, needed)
+    chosen.update(picks)
   return chosen
 
 def choose_n_by_pred(preds, n):
@@ -128,7 +132,7 @@ def choose_n_by_pred(preds, n):
   # choose guides for each bin (skipping 0)
   chosen = set()
   bins = list(range(gamma_lib.NBINS))
-  k = n // len(bins)-1
+  k = n // (len(bins)-1)
   for b in bins[1:-1]:
     bin_items = preds.loc[preds.bin == b]
     if bin_items.shape[0] <= k:
@@ -142,7 +146,7 @@ def choose_n_by_pred(preds, n):
   z = (n - len(chosen))
   # Grab up to z preferring non-max efficacy
   leftover = set(preds.variant) - chosen
-  toosick = set(preds.loc[preds.bin == bins[0]].variant)
+  toosick = set(preds.loc[preds.bin == bins[-1]].variant)
   okset = leftover - toosick
   if len(okset) >= z:
     chosen.update(random.sample(okset, z))
