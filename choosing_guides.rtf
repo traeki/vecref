@@ -1,12 +1,5 @@
-1.  Gather all possible guides
-    *   OLDBASE = /home/jsh/gd/proj/lowficrispri/docs/20180626_rebase/
-    *   gcf.BSU_TARGETS = OLDBASE/data/bsu.NC_000964.targets.all.tsv
-    *   Select down to "important" genes, via OLDBASE/output/choose_important_genes.tsv
-    *   NOTE(jsh): Can't use promoters without finding a dual-info genbank somewhere...
-2.  Generate all possible 1-mismatch variants
-3.  Prep pairs for training
-    *   Where possible make prep modular
-4.  Train {linear,cnn} model on current measured data
-    *   Where possible make model use modular
-5.  Load model and predict (relative) phenotypes for all pairs
-6.  TODO(jsh): selection of guides
+1. Change selection rules to get exactly 10 guides, including parent
+2. Change selection rules to get guides in every bin
+3. Heat map of mismatches
+4. Heat map of parent bases
+5. Ditch 22 lowest non-essential phenotypes

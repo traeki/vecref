@@ -54,45 +54,6 @@ def pick_n_parents(locus_comps, locus_preds, n):
   for ele in chosen.elements():
     yield ele
 
-def choose_n_meas(measured, n):
-  chosen = set()
-  locus = measured.locus_tag.unique()[0]
-  usable = measured.dropna()
-  usable = usable.copy()
-  if usable.shape[0] < n:
-    n_found = usable.shape[0]
-    template = 'Only found {n_found}/{n} measured guides for locus {locus}'
-    logging.warn(template.format(**locals()))
-    return random.sample(set(measured.variant), n)
-  # ascribe bins
-  usable['bin'] = gamma_lib.bin_relgammas(usable.relgamma,
-                                          gamma_lib.relgamma_bins())
-  # choose guides for each bin (skipping 0)
-  bins = list(range(gamma_lib.NBINS))
-  k = n // len(bins)-1
-  for b in bins[1:-1]:
-    bin_items = usable.loc[usable.bin == b]
-    if bin_items.shape[0] <= k:
-      # if there aren't more than k items in this bin, grab what we have
-      chosen.update(bin_items.variant)
-    else:
-      # if there are more than k, pick at random
-      poss = set(bin_items.variant) - chosen
-      chosen.update(random.sample(poss, k))
-  # How many more do we need?
-  z = (n - len(chosen))
-  # Grab up to z preferring non-max efficacy
-  leftover = set(usable.variant) - chosen
-  toosick = set(usable.loc[usable.bin == bins[-1]].variant)
-  okset = leftover - toosick
-  if len(okset) >= z:
-    chosen.update(random.sample(okset, z))
-  else:
-    chosen.update(okset)
-    chosen.update(random.sample(toosick, (z - len(okset))))
-  assert len(chosen) == n
-  return chosen
-
 def choose_n_for_each(parents, preds, comps, n):
   chosen = set()
   for parent in parents:
@@ -120,21 +81,42 @@ def choose_n_for_each(parents, preds, comps, n):
     chosen.update(picks)
   return chosen
 
+def choose_n_meas(measured, n):
+  return choose_n_by_bin(measured, 'relgamma', n)
+
 def choose_n_by_pred(preds, n):
-  preds = preds.copy()
-  if preds.shape[0] < n:
-    locus = preds.iloc[0].locus_tag
-    template = 'Fewer than {n} predicted guides for locus {locus}'
+  return choose_n_by_bin(preds, 'y_pred', n)
+
+def choose_n_by_bin(data, binnable, n):
+  loci = set(data.locus_tag.unique())
+  locus = list(loci)[0]
+  if len(loci) != 1:
+    template = 'choose_n_by_bin called with multiple loci: {loci}'
     logging.fatal(template.format(**locals()))
+    sys.exit(2)
+  usable = data.dropna()
+  usable = usable.copy()
+  if usable.shape[0] < n:
+    n_found = usable.shape[0]
+    template = 'Only found {n_found}/{n} binnable guides for locus {locus}'
+    logging.warn(template.format(**locals()))
+    if data.shape[0] < n:
+      template = 'Fewer than {n} guides exist for locus {locus}'
+      logging.fatal(template.format(**locals()))
+      sys.exit(2)
+    return random.sample(set(data.variant), n)
   # ascribe bins
-  preds['bin'] = gamma_lib.bin_relgammas(preds.y_pred,
-                                         gamma_lib.relgamma_bins())
+  rgbins = gamma_lib.relgamma_bins()
+  usable['bin'] = gamma_lib.bin_relgammas(usable[binnable], rgbins)
   # choose guides for each bin (skipping 0)
   chosen = set()
   bins = list(range(gamma_lib.NBINS))
-  k = n // (len(bins)-1)
-  for b in bins[1:-1]:
-    bin_items = preds.loc[preds.bin == b]
+  per_bin = (n-1) // (len(bins)-1)
+  for b in bins:
+    k = per_bin
+    if b == bins[-1]:
+      k -= 1
+    bin_items = usable.loc[usable.bin == b]
     if bin_items.shape[0] <= k:
       # if there aren't more than k items in this bin, grab what we have
       chosen.update(bin_items.variant)
@@ -145,14 +127,15 @@ def choose_n_by_pred(preds, n):
   # How many more do we need?
   z = (n - len(chosen))
   # Grab up to z preferring non-max efficacy
-  leftover = set(preds.variant) - chosen
-  toosick = set(preds.loc[preds.bin == bins[-1]].variant)
+  leftover = set(usable.variant) - chosen
+  toosick = set(usable.loc[usable.bin == bins[-1]].variant)
   okset = leftover - toosick
   if len(okset) >= z:
     chosen.update(random.sample(okset, z))
   else:
     chosen.update(okset)
-    chosen.update(random.sample(toosick, (z - len(okset))))
+    dregs = toosick - chosen
+    chosen.update(random.sample(dregs, (z - len(okset))))
   assert len(chosen) == n
   return chosen
 
