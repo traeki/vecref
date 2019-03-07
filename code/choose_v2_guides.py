@@ -33,6 +33,9 @@ if __name__ == '__main__':
   preds = pd.read_csv(linear_preds, sep='\t')
   logging.info('Reading comps from {COMPS}...'.format(**locals()))
   comps = pd.read_csv(COMPS, sep='\t')
+  bsu_targets = choice_lib.BSU_TARGETS
+  logging.info('Reading comps from {bsu_targets}...'.format(**locals()))
+  all_targets = pd.read_csv(bsu_targets, sep='\t')
   var_rg = mapping_lib.get_mapping('variant', 'unfiltered_relgamma', UNGD)
   var_rg.rename(columns={'unfiltered_relgamma':'relgamma'}, inplace=True)
   comps['relgamma'] = comps.variant.map(var_rg.relgamma)
@@ -68,8 +71,10 @@ if __name__ == '__main__':
     logging.info(template.format(**locals()))
     locus_comps = comps.loc[comps.locus_tag == locus]
     locus_preds = preds.loc[preds.locus_tag == locus]
+    locus_targets = all_targets.loc[all_targets.locus_tag == locus]
     locus_parents = choice_lib.pick_n_parents(locus_comps,
                                               locus_preds,
+                                              locus_targets,
                                               N_FAMILIES)
     old_guides[locus] = choice_lib.choose_n_meas(locus_comps,
                                                  OLD_GUIDES_PER_LOCUS)

@@ -25,18 +25,37 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
 np.set_printoptions(precision=4, suppress=True)
 
-def pick_n_parents(locus_comps, locus_preds, n):
+def pick_n_parents(locus_comps, locus_preds, locus_targets, n):
   chosen = Counter()
+  offset_map = locus_targets[['target', 'offset']]
+  offset_map.columns = ['original', 'offset']
+  offset_map.set_index('original', inplace=True)
   fullset = set(locus_preds.original.unique())
   past_picks = set(locus_comps.original.unique())
   unused_picks = fullset - past_picks
+  fallback_picks = set()
   # auto-include past picks but skip pre-filtered
   chosen.update(past_picks.intersection(fullset))
+  # if locus_targets.iloc[0].locus_tag == 'BSU00010':
+  #   import pdb; pdb.set_trace()
   while sum(chosen.values()) < n:
+    used_offsets = offset_map.loc[offset_map.index.intersection(chosen.keys())]
+    mask = offset_map.index.intersection(unused_picks)
+    unused_offsets = offset_map.loc[mask]
+    unused_offsets = unused_offsets.sort_values('offset')
     if unused_picks:
-      pick = random.sample(unused_picks, 1)[0]
+      candidate = unused_offsets.iloc[0]
+      unused_picks.remove(candidate.name)
+      unused_offsets = unused_offsets.iloc[1:]
+      offset_diffs = used_offsets.offset - candidate.offset
+      if (offset_diffs.abs() < 20).any():
+        fallback_picks.add(candidate.name)
+      else:
+        chosen[candidate.name] += 1
+    elif fallback_picks:
+      pick = random.sample(fallback_picks, 1)[0]
       chosen[pick] += 1
-      unused_picks.remove(pick)
+      fallback_picks.remove(pick)
     else:
       ceiling = chosen.most_common(1)[0][-1] # most common count
       floor = chosen.most_common()[-1][-1] # least common count
