@@ -1,0 +1,127 @@
+AIs
+---
+* MIRA
+
+During the past year, John attended the New Approaches and Concepts in
+Microbiology at EMBL in Heidelberg Germany, where he presented a poster on his
+work. He is expanding his skill set in the domain of statistical data analysis
+and machine learning computation in order to better design and interpret
+large-scale competitive pooled growth experiments. He is taking online courses
+in the use and applications of machine learning libraries such as TensorFlow.
+
+John spent much of the last year exploring and analyzing the data from the
+initial large pooled growth experiments.  He has built a predictive model of
+fitness for CRISPRi strains with mismatched guides targeting essential genes.
+We believe the output of this predictive model serves as an effective proxy for
+the actual expression level of a targeted gene, which would enable direct
+exploration of dose-response curves for the gene products of essential genes.
+John is collaborating on experiments to test this hypothesis and validate
+central underlying assumptions.
+
+With the foundational elements of that analysis complete, John has turned to
+applying and testing that analysis.  He has used his predictive model, along
+with the direct fitness measurements from the pooled growth experiments, to
+design and order two new libraries of guide oligos.  Construction of the strain
+libraries based on these dna libraries is underway, and we expect to perform the
+corresponding growth experiments soon.  We anticipate the new data will further
+improve both the performance and the interpretability of the predictive model,
+simultaneously demonstrating the power of a more compact allelic-series library
+and allowing us to verify the gene-specific nature of the fitness outcomes we
+see.
+
+* V2
+    * Meet w/ Cameron/BMK
+    * Ask more questions
+
+* Horia
+    * DCA writeup
+
+
+Paper/TC plan
+-------------
+
+What we have
+============
+* Diverse phenotypes for each essential gene *in Bsu*
+* Predictive model
+* Indirect validation that model predicts knockdown
+    * GFP data
+    * Predictive model inter-operation
+    * Alignment of dfrA and GFP trained parameters
+* Variety of different shapes for predicted-maybe-knockdown vs fitness
+
+What we are adding
+==================
+* Direct validation (or not) that model predicts knockdown?
+* Small library capturing allelic outcomes
+* 10-parent essential library
+
+Open questions
+==============
+* Is this "direct validation" sufficient?
+* Do we need to close the Eco vs. Bsu gaps?
+
+Horia's Proposal
+================
+
+* Intermediate phenotypes?
+* How does it work?
+* Universal across bacteria?
+
+Done
+----
+
+Strains to MLS
+==============
+* GFP/dCas9 w AmyE free
+* GFP library in Bsu?
+
+TODO
+----
+
+TCM
+===
+
+Where we were:
+* Analyzed comprehensive library
+* Phenotypic series
+* Validated individual knockdowns
+* Validated predictions, particularly gene-by-gene
+
+New:
+* BMK experiments
+* Libraries in preparation
+
+Developments/Paper Outline:
+* Melanie's data
+* Horia's reframe of model construction
+
+Libraries
++++++++++
+
+Eco Li-braries
+=============
+* V2 Explore
+* V2 Exploit
+* deep
+  * folA
+  * murA
+* Controls
+
+Bsu Libraries
+=============
+* deep
+  * dfrA
+  * murAA
+
+Steps
+=====
+* checkpoint codebase
+* predict_all_linear.py
+  * Update functions to bypass BSU hardcoding
+* choose_v2_guides.py
+  * Update functions to bypass BSU hardcoding
+  * figure out how to add deep libraries
+* oligo_lib.py
+  * Update functions to bypass BSU hardcoding
+  * pass through deep libraries

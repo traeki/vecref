@@ -1,0 +1,18 @@
+1. TCM / Paper
+
+    * DCA WTF writeup <---
+    * CNN tuning/cross-entropy
+
+2. v2 growth experiment
+
+    * Dig up protocol for BMK <---
+    * Plan intake of V2 library
+
+3. X interview
+
+    * Prepare resume <---
+    * Finish Application
+        * WAITING: Daisy or punt...
+    * Read papers
+    * Outline Talk
+    * Prepare actual talk
