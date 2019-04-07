@@ -13,15 +13,21 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
 np.set_printoptions(precision=4, suppress=True)
 
-_MAPPING_TEMPLATE = 'mapping.{0}.{1}.tsv'
-def make_mapping(frame, a, b, datadir):
+_MAPPING_TEMPLATE = 'mapping.{0}.{1}{2}.tsv'
+def make_mapping(frame, a, b, datadir, dose=None):
+  infix = ''
+  if dose:
+    infix = '.' + dose
   mapping = [a, b]
   mapview = frame[mapping].copy()
   mapview.drop_duplicates(inplace=True)
-  outfile = datadir / _MAPPING_TEMPLATE.format(*mapping)
+  outfile = datadir / _MAPPING_TEMPLATE.format(a, b, infix)
   mapview.to_csv(outfile, sep='\t', index=False)
-def get_mapping(a, b, datadir):
-  tsv_file = datadir / _MAPPING_TEMPLATE.format(a, b)
+def get_mapping(a, b, datadir, dose=None):
+  infix = ''
+  if dose:
+    infix = '.' + dose
+  tsv_file = datadir / _MAPPING_TEMPLATE.format(a, b, infix)
   frame = pd.read_csv(tsv_file, sep='\t', header=0, index_col=a)
   return frame
 

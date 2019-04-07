@@ -25,7 +25,7 @@ np.set_printoptions(precision=4, suppress=True)
 
 
 def fetch_training_data(datadir):
-  data = mapping_lib.get_mapping('variant', 'relgamma', datadir)
+  data = mapping_lib.get_mapping('variant', 'relgamma', datadir, dose='sober')
   data = training_lib.filter_for_training(data, datadir)
   data = data.dropna()
   data.reset_index(inplace=True)
@@ -33,11 +33,13 @@ def fetch_training_data(datadir):
   var_pam = mapping_lib.get_mapping('variant', 'pam', datadir).pam
   data['original'] = data.variant.map(var_orig)
   data['pam'] = data.variant.map(var_pam)
+  data.set_index('variant', inplace=True)
   return data
 
 def featurize_training_data(encoder, data, datadir):
+  data = data.reset_index()
   encodings = data.apply(encoder, axis=1)
-  Xframe = encodings.set_index(data.variant)
+  Xframe = encodings.set_index(data.index)
   Xframe = training_lib.expand_dummies(Xframe)
   X = np.array(Xframe, dtype=float)
   y = np.array(data[['relgamma']], dtype=float)

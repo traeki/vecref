@@ -15,7 +15,6 @@ import scipy.stats as st
 from sklearn import preprocessing as skpreproc
 
 import eval_lib
-import gamma_lib
 import mapping_lib
 import training_lib
 
@@ -38,7 +37,8 @@ _FIGDPI = 300
 data = eval_lib.fetch_training_data(UNGD)
 familymap = mapping_lib.get_mapping('variant', 'original', UNGD)
 familymap = familymap.loc[data.index]
-(_, X, y) = eval_lib.featurize_training_data(data, UNGD)
+encoder = training_lib.get_linear_encoder()
+X, y = eval_lib.featurize_training_data(encoder, data, UNGD)
 cross_predictions = np.full_like(y, np.nan)
 y_orig = y
 X_scaler, y_scaler, X, y = eval_lib.scale_training_data_linear(X, y)
@@ -86,8 +86,8 @@ for i in range(len(models)):
   cross_predictions[test] = test_predictions
 
   plt.figure(figsize=(6,6))
-  plt.scatter(train_predictions, y[train], marker='.', alpha=.2, label='train')
-  plt.scatter(test_predictions, y[test], marker='.', alpha=.2, label='test')
+  plt.scatter(train_predictions, y_orig[train], marker='.', alpha=.2, label='train')
+  plt.scatter(test_predictions, y_orig[test], marker='.', alpha=.2, label='test')
   plt.title('Predictions vs. Measurements\n[Fold {i}]'.format(**locals()))
   plt.xlabel('predicted')
   plt.ylabel('measured')

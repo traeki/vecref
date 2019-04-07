@@ -36,7 +36,7 @@ _BATCH_SIZE = 32
 ######################
 # Read Relgamma Data #
 ######################
-data = mapping_lib.get_mapping('variant', 'relgamma', UNGD)
+data = mapping_lib.get_mapping('variant', 'relgamma', UNGD, dose='sober')
 
 ###############
 # Filter Data #
@@ -99,7 +99,7 @@ for i, (train, test) in enumerate(kfolder):
   modelfile = str(modelfile)  # NOTE(jsh): workaround until Keras PR #11466
   model.save(modelfile)
   coverfile = modeldir / 'model.{i}.coverage.pickle'.format(**locals())
-  pickle.dump(data.index[test], open(coverfile, 'wb'))
+  pickle.dump(data.variant[test], open(coverfile, 'wb'))
 
   plt.figure(figsize=(6,6))
   plt.plot(model_history.history['mean_squared_error'])

@@ -18,3 +18,5 @@ gamma_lib.compute_dca_smooth_gammas(UNGD)
 gamma_lib.compute_normed_gammas(UNGD)
 
 gamma_lib.map_variant_to_mean_full_gamma(UNGD)
+gamma_lib.map_variant_to_mean_full_gamma(UNGD, dose='low')
+gamma_lib.map_variant_to_mean_full_gamma(UNGD, dose='high')

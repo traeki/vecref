@@ -175,10 +175,10 @@ def all_single_variants(parents):
     pairrows.append({'original':original, 'variant':variant})
   return pd.DataFrame(pairrows)
 
-def build_and_filter_pairs():
-  parents_frame = pd.read_csv(BSU_TARGETS, sep='\t')
+def build_and_filter_pairs(targetfile=BSU_TARGETS, locustagfile=GENES_W_PHENO):
+  parents_frame = pd.read_csv(targetfile, sep='\t')
   antisense_rows = parents_frame.loc[parents_frame.transdir=='anti']
-  important = set(pd.read_csv(GENES_W_PHENO, sep='\t', header=None)[0])
+  important = set(pd.read_csv(locustagfile, sep='\t', header=None)[0])
   important_rows = antisense_rows.loc[antisense_rows.locus_tag.isin(important)]
   dupmask = ~important_rows.target.duplicated(keep=False)
   important_rows = important_rows.loc[dupmask]

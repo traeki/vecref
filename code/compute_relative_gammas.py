@@ -17,8 +17,10 @@ DIR_PREFIX = pathlib.Path(__file__).parents[1]
 gamma_lib.derive_child_parent_gammas(UNGD)
 
 # compute relative gammas
-gamma_lib.map_variant_to_mean_full_relative_gamma(UNGD)
-gamma_lib.map_variant_to_mean_full_relative_gamma_unfiltered(UNGD)
+gamma_lib.map_variant_to_mean_full_relative_gamma(UNGD, dose='sober')
+gamma_lib.map_variant_to_mean_full_relative_gamma(UNGD, dose='low')
+gamma_lib.map_variant_to_mean_full_relative_gamma(UNGD, dose='high')
+gamma_lib.map_variant_to_mean_full_relative_gamma(UNGD, filtered=False)
 
 # break out relgamma bins
 gamma_lib.map_variant_to_bin(UNGD)

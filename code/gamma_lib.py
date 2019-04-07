@@ -43,9 +43,6 @@ def _diff_by_tp(group, field, *, k=1, raw_threshold=None):
     wide = wide.where(mask)
   return wide.stack(dropna=False)
 
-def _drop_drugged(data):
-  return data.drop(data.loc[data.dose != 'sober'].index)
-
 _ROUGH_GAMMA_FILE = 'rough.gammas.by.variant.tsv'
 def compute_rough_gammas(datadir):
   data = mapping_lib.get_countdata(datadir)
@@ -53,7 +50,6 @@ def compute_rough_gammas(datadir):
   data = data.merge(varcon.reset_index(), how='left', on='variant')
   data = data.merge(mapping_lib.get_sample_tags(datadir),
                     how='left', on='sample')
-  data = _drop_drugged(data)
   data.drop('sample', axis=1, inplace=True)
   def normalize(counts):
     return counts * _NORMAL_SIZE / counts.sum()
@@ -110,6 +106,13 @@ def dca_smooth_gammas(unsmoothed_gammas):
   XDDt.columns.set_names('spid', inplace=True)
   return XDDt
 
+def select_dose(datagrid, dose, datadir):
+  assert dose in {'sober', 'low', 'high'}
+  sampletags = mapping_lib.get_sample_tags(datadir)
+  keepers = sampletags.loc[sampletags.dose == dose].sid.unique()
+  datagrid.stack(level='span', dropna=False)[keepers].unstack()
+  return datagrid[keepers]
+
 _DCA_SMOOTHED_GAMMA_FILE = 'dca.smoothed.gammas.tsv'
 def compute_dca_smooth_gammas(datadir):
   X = get_rough_gammas(datadir)
@@ -127,7 +130,6 @@ def normalize_gammas(countdata, sampletags, XDDt, od_data):
   g_map = [[sid, g_fit(group)] for sid, group in od_data.groupby('sid')]
   g_map = pd.DataFrame(g_map, columns=['sid', 'g_fit'])
   data = pd.merge(countdata, sampletags, how='left', on='sample')
-  data = _drop_drugged(data)
   data = pd.merge(data, od_data[['sample', 'time']], how='left', on='sample')
   data.drop('sample', axis=1, inplace=True)
   data.set_index(['variant', 'sid', 'tp'], inplace=True)
@@ -166,18 +168,16 @@ def get_normed_gammas(datadir):
                        sep='\t', header=[0,1], index_col=0)
   return gammas
 
-def map_variant_to_mean_full_gamma(datadir):
+def map_variant_to_mean_full_gamma(datadir, dose='sober'):
   allgammas = get_normed_gammas(datadir)
-  allgammas = allgammas.stack(level=1, dropna=False).reset_index()
-  gammas = allgammas.loc[allgammas.span == '03']
-  gammas = gammas.drop('span', axis=1)
-  gammas.set_index('variant', inplace=True)
+  gammas = select_dose(allgammas, dose, datadir)
+  gammas = gammas.stack(level='sid', dropna=False)[['03']].unstack()
   gammas = pd.DataFrame(gammas.mean(axis=1), columns=['gamma'])
   gammas.reset_index(inplace=True)
-  mapping_lib.make_mapping(gammas, 'variant', 'gamma', datadir)
+  mapping_lib.make_mapping(gammas, 'variant', 'gamma', datadir, dose=dose)
 
-_CHILD_GAMMA_FILE = 'child.gammas.tsv'
-_PARENT_GAMMA_FILE = 'parent.gammas.tsv'
+_PARENT_GAMMA_FILE_NAME = 'parent.gamma.tsv'
+_CHILD_GAMMA_FILE_NAME = 'child.gamma.tsv'
 def derive_child_parent_gammas(datadir):
   var_orig = mapping_lib.get_mapping('variant', 'original', datadir)
   var_orig.reset_index(inplace=True)
@@ -185,54 +185,41 @@ def derive_child_parent_gammas(datadir):
   parent_gammas = allgammas.loc[var_orig.original]
   child_gammas = allgammas.loc[var_orig.variant]
   parent_gammas.index = child_gammas.index
-  child_gammas.to_csv(datadir / _CHILD_GAMMA_FILE, sep='\t')
-  parent_gammas.to_csv(datadir / _PARENT_GAMMA_FILE, sep='\t')
+  child_gammas.to_csv(datadir / _CHILD_GAMMA_FILE_NAME, sep='\t')
+  parent_gammas.to_csv(datadir / _PARENT_GAMMA_FILE_NAME, sep='\t')
 def get_child_gammas(datadir):
-  gammas = pd.read_csv(datadir / _CHILD_GAMMA_FILE,
+  gammas = pd.read_csv(datadir / _CHILD_GAMMA_FILE_NAME,
                        sep='\t', header=[0,1], index_col=0)
   return gammas
 def get_parent_gammas(datadir):
-  gammas = pd.read_csv(datadir / _PARENT_GAMMA_FILE,
+  gammas = pd.read_csv(datadir / _PARENT_GAMMA_FILE_NAME,
                        sep='\t', header=[0,1], index_col=0)
   return gammas
 
-def map_variant_to_mean_full_relative_gamma(datadir):
+def map_variant_to_mean_full_relative_gamma(datadir, *,
+                                            dose='sober', filtered=True):
   child_gammas = get_child_gammas(datadir)
   parent_gammas = get_parent_gammas(datadir)
   varcon = mapping_lib.get_mapping('variant', 'control', datadir)
-  vargamma = mapping_lib.get_mapping('variant', 'gamma', datadir)
+  vargamma = mapping_lib.get_mapping('variant', 'gamma', datadir, dose=dose)
   conmask = vargamma.index.intersection(varcon.loc[varcon.control].index)
   congamma = vargamma.loc[conmask]
   sigma = congamma.std().gamma
   z = -sigma # easier to read
   unfiltered = (child_gammas / parent_gammas) - 1
-  geodelt_gammas = unfiltered.where(parent_gammas < (_Z_THRESHOLD * z))
-  geodelt_gammas = geodelt_gammas.stack(level=1, dropna=False).reset_index()
-  relgammas = geodelt_gammas.loc[geodelt_gammas.span == '03']
-  relgammas = relgammas.drop('span', axis=1)
-  relgammas.set_index('variant', inplace=True)
-  relgammas = pd.DataFrame(relgammas.mean(axis=1), columns=['relgamma'])
+  if filtered:
+    geodelt_gammas = unfiltered.where(parent_gammas < (_Z_THRESHOLD * z))
+  else:
+    geodelt_gammas = unfiltered
+  relgammas = select_dose(geodelt_gammas, dose, datadir)
+  relgammas = relgammas.stack(level='sid', dropna=False)[['03']].unstack()
+  if filtered:
+    colname = 'relgamma'
+  else:
+    colname = 'unfiltered_relgamma'
+  relgammas = pd.DataFrame(relgammas.mean(axis=1), columns=[colname])
   relgammas.reset_index(inplace=True)
-  mapping_lib.make_mapping(relgammas, 'variant', 'relgamma', datadir)
-
-def map_variant_to_mean_full_relative_gamma_unfiltered(datadir):
-  child_gammas = get_child_gammas(datadir)
-  parent_gammas = get_parent_gammas(datadir)
-  varcon = mapping_lib.get_mapping('variant', 'control', datadir)
-  vargamma = mapping_lib.get_mapping('variant', 'gamma', datadir)
-  conmask = vargamma.index.intersection(varcon.loc[varcon.control].index)
-  congamma = vargamma.loc[conmask]
-  sigma = congamma.std().gamma
-  z = -sigma # easier to read
-  unfiltered = (child_gammas / parent_gammas) - 1
-  geodelt_gammas = unfiltered
-  geodelt_gammas = geodelt_gammas.stack(level=1, dropna=False).reset_index()
-  relgammas = geodelt_gammas.loc[geodelt_gammas.span == '03']
-  relgammas = relgammas.drop('span', axis=1)
-  relgammas.set_index('variant', inplace=True)
-  relgammas = pd.DataFrame(relgammas.mean(axis=1), columns=['unfiltered_relgamma'])
-  relgammas.reset_index(inplace=True)
-  mapping_lib.make_mapping(relgammas, 'variant', 'unfiltered_relgamma', datadir)
+  mapping_lib.make_mapping(relgammas, 'variant', colname, datadir, dose=dose)
 
 def relgamma_bins():
   return np.linspace(BIN_MIN, BIN_MAX, NBINS-1)
@@ -241,23 +228,14 @@ def bin_relgammas(relgammas, bins):
   rgbins = np.digitize(relgammas, bins)
   return rgbins
 
-def map_variant_to_bin(datadir):
-  varrg = mapping_lib.get_mapping('variant', 'relgamma', datadir)
+def map_variant_to_bin(datadir, dose='sober'):
+  varrg = mapping_lib.get_mapping('variant', 'relgamma', datadir, dose=dose)
   bins = relgamma_bins()
   rgbin = bin_relgammas(varrg.relgamma.values, bins)
-  rgbin = pd.DataFrame(rgbin.T, index=varrg.index, columns=['rgbin']).reset_index()
-  mapping_lib.make_mapping(rgbin, 'variant', 'rgbin', datadir)
-
-def unfiltered_mean_relgammas(datadir):
-  child_gammas = get_child_gammas(datadir)
-  parent_gammas = get_parent_gammas(datadir)
-  geodelt_gammas = (child_gammas / parent_gammas) - 1
-  geodelt_gammas = geodelt_gammas.stack(level=1, dropna=False).reset_index()
-  relgammas = geodelt_gammas.loc[geodelt_gammas.span == '03']
-  relgammas = relgammas.drop('span', axis=1)
-  relgammas.set_index('variant', inplace=True)
-  relgammas = pd.DataFrame(relgammas.mean(axis=1), columns=['relgamma'])
-  return relgammas
+  rgbin = pd.DataFrame(rgbin.T,
+                       index=varrg.index, columns=['rgbin']).reset_index()
+  mapping_lib.make_mapping(rgbin, 'variant', 'rgbin',
+                           datadir, dose=dose)
 
 def weight_bins(binlabels):
   bounds = np.concatenate([[-1], relgamma_bins(), [0]])
