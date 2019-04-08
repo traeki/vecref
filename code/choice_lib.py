@@ -17,9 +17,6 @@ import gamma_lib
 import training_lib
 
 BASES = 'ACGT'
-OLDBASE = pathlib.Path('/home/jsh/gd/proj/lowficrispri/docs/20180626_rebase/')
-BSU_TARGETS = OLDBASE / 'data/bsu.NC_000964.targets.all.tsv'
-GENES_W_PHENO = OLDBASE / 'output/choose_important_genes.tsv'
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
@@ -31,13 +28,13 @@ def pick_n_parents(locus_comps, locus_preds, locus_targets, n):
   offset_map.columns = ['original', 'offset']
   offset_map.set_index('original', inplace=True)
   fullset = set(locus_preds.original.unique())
-  past_picks = set(locus_comps.original.unique())
+  past_picks = set()
+  if locus_comps is not None:
+    past_picks = set(locus_comps.original.unique())
   unused_picks = fullset - past_picks
   fallback_picks = set()
   # auto-include past picks but skip pre-filtered
   chosen.update(past_picks.intersection(fullset))
-  # if locus_targets.iloc[0].locus_tag == 'BSU00010':
-  #   import pdb; pdb.set_trace()
   while sum(chosen.values()) < n:
     used_offsets = offset_map.loc[offset_map.index.intersection(chosen.keys())]
     mask = offset_map.index.intersection(unused_picks)
@@ -66,7 +63,6 @@ def pick_n_parents(locus_comps, locus_preds, locus_targets, n):
           chosen[boost[0]] += 1
           break
   if chosen.most_common(1)[0][-1] > 4:
-    locus = locus_comps.locus_tag.unique()[0]
     # 5*10 + 13 > 60, so warn if we see 5+ instances
     template = 'Had to fall back to same family too often: {chosen}'
     logging.warn(template.format(**locals()))
@@ -78,8 +74,10 @@ def choose_n_for_each(parents, preds, comps, n):
   for parent in parents:
     needed = n
     family_preds = preds.loc[preds.original == parent]
-    family_comps = comps.loc[comps.original == parent]
-    compset = set(family_comps.variant)
+    compset = set()
+    if comps is not None:
+      family_comps = comps.loc[comps.original == parent]
+      compset = set(family_comps.variant)
     used_mask = family_preds.variant.isin(chosen)
     comp_mask = family_preds.variant.isin(compset)
     family_remaining = family_preds.loc[~used_mask & ~comp_mask]
@@ -107,6 +105,8 @@ def choose_n_by_pred(preds, n):
   return choose_n_by_bin(preds, 'y_pred', n)
 
 def choose_n_by_bin(data, binnable, n):
+  if data.empty:
+    return set()
   loci = set(data.locus_tag.unique())
   locus = list(loci)[0]
   if len(loci) != 1:
@@ -121,8 +121,7 @@ def choose_n_by_bin(data, binnable, n):
     logging.warn(template.format(**locals()))
     if data.shape[0] < n:
       template = 'Fewer than {n} guides exist for locus {locus}'
-      logging.fatal(template.format(**locals()))
-      sys.exit(2)
+      logging.warning(template.format(**locals()))
     return random.sample(set(data.variant), n)
   # ascribe bins
   rgbins = gamma_lib.relgamma_bins()
@@ -175,7 +174,7 @@ def all_single_variants(parents):
     pairrows.append({'original':original, 'variant':variant})
   return pd.DataFrame(pairrows)
 
-def build_and_filter_pairs(targetfile=BSU_TARGETS, locustagfile=GENES_W_PHENO):
+def build_and_filter_pairs(targetfile, locustagfile):
   parents_frame = pd.read_csv(targetfile, sep='\t')
   antisense_rows = parents_frame.loc[parents_frame.transdir=='anti']
   important = set(pd.read_csv(locustagfile, sep='\t', header=None)[0])

@@ -16,6 +16,9 @@ from Bio.Seq import Seq
 
 import mapping_lib
 
+from choose_v2_guides import OLDGUIDEFILE
+from choose_v2_guides import NEWGUIDEFILE
+
 ADAPTERS = list()
 ADAPTERS.append(('ATTTTGCCCCTGGTTCTT', 'CCAGTTCATTTCTTAGGG'))
 ADAPTERS.append(('TCACAACTACACCAGAAG', 'GCAACACTTTGACGAAGA'))
@@ -66,15 +69,6 @@ UNGD = pathlib.Path('/home/jsh/ungd/proj/vecref')
 _CODEFILE = pathlib.Path(__file__).name
 OLIGOFILE = (UNGD / _CODEFILE).with_suffix('.oligos')
 
-BSU_EXPLOIT = UNGD / 'choose_v2_guides.bsu.exploit.tsv'
-BSU_EXPLORE = UNGD / 'choose_v2_guides.bsu.explore.tsv'
-ECO_EXPLOIT = UNGD / 'choose_v2_guides.eco.exploit.tsv'
-ECO_EXPLORE = UNGD / 'choose_v2_guides.eco.explore.tsv'
-DFRA_FILE =  UNGD / 'bsu.dfrA.all.tsv'
-MURAA_FILE = UNGD / 'bsu.murAA.all.tsv'
-FOLA_FILE =  UNGD / 'eco.folA.all.tsv'
-MURA_FILE =  UNGD / 'eco.murA.all.tsv'
-
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
 np.set_printoptions(precision=4, suppress=True)
@@ -99,62 +93,45 @@ def build_oligos(guides, adapterid, *, bothdirs=True, ncopies=1):
     collated.extend(oligos)
   return collated
 
-
-def oligos_from(filename, adaptid, ncopies):
-  guides = pd.read_csv(filename, sep='\t')
-  variants = build_oligos(guides.variant, adaptid, ncopies=ncopies)
-  parents = build_oligos(guides.original.unique(), adaptid, ncopies=ncopies)
-  n_total = (len(guides.variant) + len(guides.original.unique()))
-  logging.info('cooked up {n_total} oligos'.format(**locals()))
-  n_parents = len(guides.original.unique())
-  logging.info('...{n_parents} of them parents'.format(**locals()))
-  return (variants + parents)
-
 if __name__ == '__main__':
-
-  con_copies = 10
-  bsu_exploit_copies = 0
-  bsu_explore_copies = 0
-  eco_exploit_copies = 4
-  eco_explore_copies = 2
-  dfra_copies = 4
-  muraa_copies = 4
-  fola_copies = 4
-  mura_copies = 4
-
+  con_copies = 3
+  old_copies = 3
+  new_copies = 3
   con_adaptid = 0
-  bsu_exploit_adaptid = 1
-  bsu_explore_adaptid = 2
-  eco_exploit_adaptid = 3
-  eco_explore_adaptid = 4
-  dfra_adaptid = 5
-  muraa_adaptid = 6
-  fola_adaptid = 7
-  mura_adaptid = 8
-
+  old_adaptid = 1
+  new_adaptid = 2
   cmap = mapping_lib.get_mapping('variant', 'control', UNGD)
   controls = list(cmap.loc[cmap.control].index)
   colis = build_oligos(controls,
                        con_adaptid,
                        ncopies=con_copies)
-
+  oldguides = pd.read_csv(OLDGUIDEFILE, sep='\t')
+  oldvariants = build_oligos(oldguides.variant,
+                             old_adaptid,
+                             ncopies=old_copies)
+  oldparents = build_oligos(oldguides.original.unique(),
+                            old_adaptid,
+                            ncopies=old_copies)
+  nold = len(oldguides.variant) + len(oldguides.original.unique())
+  logging.info('{nold} old oligos'.format(**locals()))
+  noldps = len(oldguides.original.unique())
+  logging.info('...{noldps} of them parents'.format(**locals()))
+  newguides = pd.read_csv(NEWGUIDEFILE, sep='\t')
+  newvariants = build_oligos(newguides.variant,
+                             new_adaptid,
+                             ncopies=new_copies)
+  newparents = build_oligos(newguides.original.unique(),
+                            new_adaptid,
+                            ncopies=new_copies)
+  nnew = len(newguides.variant) + len(newguides.original.unique())
+  logging.info('{nnew} new oligos'.format(**locals()))
+  nnewps = len(newguides.original.unique())
+  logging.info('...{nnewps} of them parents'.format(**locals()))
   with open(OLIGOFILE, 'w') as outfile:
     allolis = list()
     allolis.extend(colis)
-    allolis.extend(
-        oligos_from(BSU_EXPLOIT, bsu_exploit_adaptid, bsu_exploit_copies))
-    allolis.extend(
-        oligos_from(BSU_EXPLORE, bsu_explore_adaptid, bsu_explore_copies))
-    allolis.extend(
-        oligos_from(ECO_EXPLOIT, eco_exploit_adaptid, eco_exploit_copies))
-    allolis.extend(
-        oligos_from(ECO_EXPLORE, eco_explore_adaptid, eco_explore_copies))
-    allolis.extend(
-        oligos_from(DFRA_FILE, dfra_adaptid, dfra_copies))
-    allolis.extend(
-        oligos_from(MURAA_FILE, muraa_adaptid, muraa_copies))
-    allolis.extend(
-        oligos_from(FOLA_FILE, fola_adaptid, fola_copies))
-    allolis.extend(
-        oligos_from(MURA_FILE, mura_adaptid, mura_copies))
+    allolis.extend(oldvariants)
+    allolis.extend(oldparents)
+    allolis.extend(newvariants)
+    allolis.extend(newparents)
     outfile.write('\n'.join(allolis))

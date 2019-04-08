@@ -116,12 +116,14 @@ Bsu Libraries
 
 Steps
 =====
-* checkpoint codebase
-* predict_all_linear.py
-  * Update functions to bypass BSU hardcoding
-* choose_v2_guides.py
-  * Update functions to bypass BSU hardcoding
-  * figure out how to add deep libraries
+* pull out dfrA, murAA, folA, murA
+  * find locus tags for dfrA, murAA, folA, murA
+  * dfrA:  BSU21810
+  * murAA: BSU36760
+  * folA:  ECK0049
+           BW25113_0048
+  * murA:  ECK3178
+           BW25113_3189
 * oligo_lib.py
   * Update functions to bypass BSU hardcoding
   * pass through deep libraries

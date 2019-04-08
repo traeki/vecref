@@ -13,7 +13,9 @@ import seaborn as sns
 import choice_lib
 import mapping_lib
 
-from predict_all_linear import PREDFILE as linear_preds
+from predict_all_linear import BSU_PREDFILE
+from predict_all_linear import BSU_TARGETS
+from predict_all_linear import BSU_LOCI
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
@@ -23,24 +25,22 @@ COMPS = UNGD / 'lib2_comps.tsv'
 _CODEFILE = pathlib.Path(__file__).name
 N_LOCI = 300
 N_FAMILIES = 10
-OLD_GUIDES_PER_LOCUS = 9
-NEW_GUIDES_PER_FAMILY = 9
-OLDGUIDEFILE = (UNGD / _CODEFILE).with_suffix('.old.guides.tsv')
-NEWGUIDEFILE = (UNGD / _CODEFILE).with_suffix('.new.guides.tsv')
+EXPLOIT_GUIDES_PER_LOCUS = 9
+EXPLORE_GUIDES_PER_FAMILY = 9
+EXPLOITFILE = (UNGD / _CODEFILE).with_suffix('.exploit.tsv')
+EXPLOREFILE = (UNGD / _CODEFILE).with_suffix('.explore.tsv')
 
 if __name__ == '__main__':
-  logging.info('Reading preds from {linear_preds}...'.format(**locals()))
-  preds = pd.read_csv(linear_preds, sep='\t')
+  logging.info('Reading preds from {BSU_PREDFILE}...'.format(**locals()))
+  preds = pd.read_csv(BSU_PREDFILE, sep='\t')
   logging.info('Reading comps from {COMPS}...'.format(**locals()))
   comps = pd.read_csv(COMPS, sep='\t')
-  bsu_targets = choice_lib.BSU_TARGETS
-  logging.info('Reading comps from {bsu_targets}...'.format(**locals()))
-  all_targets = pd.read_csv(bsu_targets, sep='\t')
-  var_rg = mapping_lib.get_mapping('variant', 'unfiltered_relgamma', UNGD)
+  logging.info('Reading targets from {BSU_TARGETS}...'.format(**locals()))
+  all_targets = pd.read_csv(BSU_TARGETS, sep='\t')
+  var_rg = mapping_lib.get_mapping('variant', 'unfiltered_relgamma', UNGD, dose='sober')
   var_rg.rename(columns={'unfiltered_relgamma':'relgamma'}, inplace=True)
   comps['relgamma'] = comps.variant.map(var_rg.relgamma)
-  important = set(pd.read_csv(choice_lib.GENES_W_PHENO,
-                              sep='\t', header=None)[0])
+  important = set(pd.read_csv(BSU_LOCI, sep='\t', header=None)[0])
   essmap = mapping_lib.get_mapping('locus_tag', 'bmk_ess', UNGD)
   kinda = (important - set(essmap.loc[essmap.bmk_ess == True].index))
   veryimp = important - kinda
@@ -57,15 +57,15 @@ if __name__ == '__main__':
   var_dir = mapping_lib.get_mapping('variant', 'rel_dir', UNGD)
   pgframe['rel_dir'] = pgframe.variant.map(var_dir.rel_dir)
   pgframe = pgframe.loc[pgframe.rel_dir == 'anti'].copy()
-  var_gamma = mapping_lib.get_mapping('variant', 'gamma', UNGD)
+  var_gamma = mapping_lib.get_mapping('variant', 'gamma', UNGD, dose='sober')
   pgframe['gamma'] = pgframe.variant.map(var_gamma.gamma)
   locus_mpg = pgframe.groupby('locus_tag').mean().gamma
   # Drop down to the right number
   fill_loci = set(locus_mpg.sort_values().head(fill_size).index)
   chosen_loci = veryimp.union(fill_loci)
   # loop over locus tags and choose measure
-  old_guides = dict()
-  new_guides = dict()
+  exploit_guides = dict()
+  explore_guides = dict()
   for locus in chosen_loci:
     template = 'Examining options for locus_tag: {locus}...'
     logging.info(template.format(**locals()))
@@ -76,19 +76,19 @@ if __name__ == '__main__':
                                               locus_preds,
                                               locus_targets,
                                               N_FAMILIES)
-    old_guides[locus] = choice_lib.choose_n_meas(locus_comps,
-                                                 OLD_GUIDES_PER_LOCUS)
-    new_guides[locus] = choice_lib.choose_n_for_each(locus_parents,
+    exploit_guides[locus] = choice_lib.choose_n_meas(locus_comps,
+                                                 EXPLOIT_GUIDES_PER_LOCUS)
+    explore_guides[locus] = choice_lib.choose_n_for_each(locus_parents,
                                                      locus_preds,
                                                      locus_comps,
-                                                     NEW_GUIDES_PER_FAMILY)
-  allold = set()
-  for locus in old_guides:
-    allold.update(old_guides[locus])
-  allnew = set()
-  for locus in new_guides:
-    allnew.update(new_guides[locus])
-  oldframe = comps.loc[comps.variant.isin(allold)]
-  oldframe.to_csv(OLDGUIDEFILE, sep='\t', index=False)
-  newframe = preds.loc[preds.variant.isin(allnew)]
-  newframe.to_csv(NEWGUIDEFILE, sep='\t', index=False)
+                                                     EXPLORE_GUIDES_PER_FAMILY)
+  allexploit = set()
+  for locus in exploit_guides:
+    allexploit.update(exploit_guides[locus])
+  allexplore = set()
+  for locus in explore_guides:
+    allexplore.update(explore_guides[locus])
+  exploitframe = comps.loc[comps.variant.isin(allexploit)]
+  exploitframe.to_csv(EXPLOITFILE, sep='\t', index=False)
+  exploreframe = preds.loc[preds.variant.isin(allexplore)]
+  exploreframe.to_csv(EXPLOREFILE, sep='\t', index=False)
