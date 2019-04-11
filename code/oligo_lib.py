@@ -112,7 +112,7 @@ def oligos_from(filename, adaptid, ncopies):
 
 if __name__ == '__main__':
 
-  con_copies = 10
+  con_copies = 9
   bsu_exploit_copies = 0
   bsu_explore_copies = 0
   eco_exploit_copies = 4
