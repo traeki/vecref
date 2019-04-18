@@ -73,6 +73,11 @@ def get_rough_gammas(datadir):
   return X
 
 def rebase(A, D):
+  """Rebase matrix A in spanning dimensions of D.
+
+  Maps matrix A into and back out of the space indicated by dimensions D,
+  thereby stripping out the kernel of D from A.
+  """
   A = np.ma.masked_invalid(A)
   U_, s_, Vt_ = np.linalg.svd(D, full_matrices=True)
   rank_ = (~np.isclose(s_, 0)).sum()
@@ -84,6 +89,13 @@ def rebase(A, D):
 
 
 def dca_smooth_gammas(unsmoothed_gammas):
+  """Use Defined Component Analysis transformation to smooth gammas.
+
+  Any variance that is not explained by the components indicated (those which
+  can be explained by experimental conditions) is smoothed out by rebasing the
+  data in terms of the spanning dimensions of the matrix comprising said
+  components.
+  """
   X = unsmoothed_gammas
   taggers = list()
   taggers.append(('span01', lambda s: (s[-2:] == '01')))

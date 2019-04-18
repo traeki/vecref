@@ -2,3 +2,8 @@ environment/*
 code/legacy/*
 code/__pycache__/*
 code/*.ignore
+static/choose_v2*
+static/*.all.tsv
+static/2019.chip*
+normed.dca.gammas.tsv
+static/sample.agilent.oligo.dna
